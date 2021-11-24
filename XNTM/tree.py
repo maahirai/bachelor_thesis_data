@@ -13,10 +13,9 @@ class node(object):
 MIX_COUNTER = 0
 def _InputToTree(Input,provide_vol):
     global MIX_COUNTER
-    root = node('M{}'.format(MIX_COUNTER),size=sum(Input[0]),provide_vol=provide_vol)
-    MIX_COUNTER += 1
-    idx = 0 
-    for item in Input[1:]:
+    root = node('M',size=sum(Input[0]),provide_vol=provide_vol)
+    MIX_COUNTER += 1 
+    for idx,item in enumerate(Input[1:]):
         ### ミキサー
         if type(item) == list:
             root.children.append(_InputToTree(item,Input[0][idx]))
@@ -24,15 +23,27 @@ def _InputToTree(Input,provide_vol):
         elif type(item) == str:
             root.children.append(node(item,size=Input[0][idx],provide_vol=Input[0][idx]))
         else :
-            return
+            pass
         idx += 1
     return root
     
-def InputToTree(Input):
-    global MIX_COUNTER
-    MIX_COUNTER = 0
-    return _InputToTree(Input,0)
+def _labeling(root):
+    q = []
+    q.append(root)
+    idx = 0
+    while not len(q)==0:
+        n = q.pop(0)
+        n.name = n.name + str(idx)
+        idx += 1
+        for item in n.children :
+            if item.name[0] == "M":
+                q.append(item)
+    return root
 
+def InputToTree(Input):
+    root = _InputToTree(Input,0)
+    tree = _labeling(root)
+    return tree
 ######################################################################################
 def _getNodesEdges(node):
     '''
@@ -54,11 +65,16 @@ def _createTree(root, label=None):
     convert a tree from NODE data structure to Pydot Graph for visualisation
     '''
     P = pydot.Dot(graph_type='digraph', label=label, labelloc='top', labeljust='left')#, nodesep="1", ranksep="1")
-    
+    P.set_node_defaults(style='filled')
+
     nodelist, edgelist = _getNodesEdges(root)
     
-    for node in nodelist:
-        n = pydot.Node(node[0], shape = 'circle' if node[1][0]=="M" else 'plaintext',label=node[1])
+    for i,node in enumerate(nodelist):
+        RGB = 0
+        for d in range(3):
+            RGB = RGB * 256 + random.randint(64,255)
+        color = "#"+hex(RGB)[2:]
+        n = pydot.Node(node[0], shape = 'circle' if node[1][0]=="M" else 'plaintext',label=node[1],fillcolor=color if node[1][0]=="M" else "#FFFFFF")
         ### ミキサーは円で囲む，試薬液滴はテキストのみ.
         P.add_node(n)
     
