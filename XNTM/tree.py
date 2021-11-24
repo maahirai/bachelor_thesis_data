@@ -1,11 +1,12 @@
 import random
 
 class node(object):
-    def __init__(self, name, size=6, provide_vol=0, children = []):
+    def __init__(self, name, size=6, provide_vol=0, children = None ):
         self.name = name 
         self.size = size
         self.provide_vol = provide_vol
-        self.children = children or []
+        self.children = children if children else []
+
         self.hash = random.randint(1,100000001)
 
 ######################################################################################
