@@ -9,17 +9,38 @@ class node(object):
 
         self.hash = random.randint(1,100000001)
 
+def IsMixerNode(Node):
+    if ISMixerName(Node.name):
+        return True
+    else :
+        return False
+
+def ISMixerName(name):
+    if name[0]=='M':
+        return True
+    else :
+        return False
+
+
+
 ######################################################################################
+#入力を木構造へ変換
 MIX_COUNTER = 0
+
+def InputToTree(Input):
+    root = _InputToTree(Input,0)
+    tree = LabelingMixers(root)
+    return tree
+
 def _InputToTree(Input,provide_vol):
     global MIX_COUNTER
     root = node('M',size=sum(Input[0]),provide_vol=provide_vol)
     MIX_COUNTER += 1 
     for idx,item in enumerate(Input[1:]):
-        ### ミキサー
+        ### mixer
         if type(item) == list:
             root.children.append(_InputToTree(item,Input[0][idx]))
-        ### 試薬液滴
+        ### droplet of reagent
         elif type(item) == str:
             root.children.append(node(item,size=Input[0][idx],provide_vol=Input[0][idx]))
         else :
@@ -27,7 +48,7 @@ def _InputToTree(Input,provide_vol):
         idx += 1
     return root
     
-def _labeling(root):
+def LabelingMixers(root):
     q = []
     q.append(root)
     idx = 0
@@ -40,11 +61,63 @@ def _labeling(root):
                 q.append(item)
     return root
 
-def InputToTree(Input):
-    root = _InputToTree(Input,0)
-    tree = _labeling(root)
-    return tree
 ######################################################################################
+# transform the input tree
+from copy import deepcopy
+import itertools
+
+# Sum of Number of children-mixer in the subtree
+lNumChildMixer = []
+
+def TransformTree(root):
+    global lNumChildMixer,MIX_COUNTER
+    lNumChildMixer = list(itertools.repeat(0,MIX_COUNTER))
+    transformed_tree = _TransformTree(root)
+    return transformed_tree
+
+def _TransformTree(root):
+    Children = []
+    for item in root.children:
+        ppv = 0
+        if IsMixerNode(item):
+            # Sum of Number of children-mixer in the subtree
+            ppv += NumChildMixer(item)
+            # providing volume 
+            ppv += item.provide_vol
+            # we must place tht item firstly if (item.provide_vol == (ParentMixer.size - 1))
+            if item.provide_vol == root.size - 1:
+                # so large value
+                INF = 10000000
+                ppv += INF
+        Children.append((item,ppv))
+    SortedByPPV = sorted( Children, key = lambda x: x[1], reverse = True)
+    res = []
+    for item in SortedByPPV:
+        Subtree = _TransformTree(item[0])
+        res.append(Subtree)
+    root.children = res
+    return root
+
+        
+def NumChildMixer(root):
+    global lNumChildMixer
+    if not IsMixerNode(root):
+        return 0
+    else :
+        mixeridx = int(root.name[1:])
+        if not lNumChildMixer[mixeridx] == 0:
+            return lNumChildMixer[mixeridx]
+        else :
+            v = 0
+            for item in root.children:
+                if IsMixerNode(item):
+                    v += 1
+                    v += NumChildMixer(item)
+            lNumChildMixer[mixeridx] = v
+            return lNumChildMixer[mixeridx]
+
+######################################################################################
+
 def _getNodesEdges(node):
     '''
     returns list of nodes and edges of a tree from NODE data structure
@@ -60,12 +133,19 @@ def _getNodesEdges(node):
     return nodelist, edgelist
 
 import pydot
+
+ColorList = []
 def _createTree(root, label=None):
     '''
     convert a tree from NODE data structure to Pydot Graph for visualisation
     '''
+    global MIX_COUNTER,ColorList
+    if not ColorList:
+        ColorList = list(itertools.repeat("#000000",MIX_COUNTER))
     P = pydot.Dot(graph_type='digraph', label=label, labelloc='top', labeljust='left')#, nodesep="1", ranksep="1")
-    P.set_node_defaults(style='filled')
+    P.set_node_defaults(style='filled',fixedsize='true')
+    P.set_graph_defaults(bgcolor="#00000000")
+    P.set_edge_defaults(fontsize = '20',arrowsize = '0.5')
 
     nodelist, edgelist = _getNodesEdges(root)
     
@@ -73,8 +153,16 @@ def _createTree(root, label=None):
         RGB = 0
         for d in range(3):
             RGB = RGB * 256 + random.randint(64,255)
-        color = "#"+hex(RGB)[2:]
-        n = pydot.Node(node[0], shape = 'circle' if node[1][0]=="M" else 'plaintext',label=node[1],fillcolor=color if node[1][0]=="M" else "#FFFFFF")
+
+        ### 試薬液滴ノードの表示設定
+        shape,color,width='plaintext',"#FFFFFF","0.3" 
+        ### ミキサーノードの表示設定
+        if node[1][0]=="M" :
+            mixeridx = int(node[1][1:])
+            if ColorList[mixeridx] == "#000000":
+                ColorList[mixeridx] = "#"+hex(RGB)[2:]
+            shape,color,width = 'circle',ColorList[mixeridx],"0.75"
+        n = pydot.Node(node[0], shape = shape,label=node[1],fillcolor=color ,width= width)
         ### ミキサーは円で囲む，試薬液滴はテキストのみ.
         P.add_node(n)
     
