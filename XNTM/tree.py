@@ -10,12 +10,12 @@ class node(object):
         self.hash = random.randint(1,100000001)
 
 def IsMixerNode(Node):
-    if ISMixerName(Node.name):
+    if IsMixerName(Node.name):
         return True
     else :
         return False
 
-def ISMixerName(name):
+def IsMixerName(name):
     if name[0]=='M':
         return True
     else :
