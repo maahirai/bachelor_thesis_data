@@ -249,14 +249,13 @@ def main():
                     cnt[n] += 1
                     cntperPM[pm] += 1
                     cnt_pattern += 1
-        #print("PM当たりのパターン: {}".format(cntperPM[pm]))    
+        print("PM当たりのパターン: {}".format(cntperPM[pm]))    
         print("all_patterns : {}".format(cnt_pattern))
+    
+    ### output res to json file
+    with open("placement.json","w") as f:
+        str_res = json.dump(res, f, indent=4) 
 
-        print(res)
-    #print(res)
-    return
-    with open("placement.json","w"):
-        str_res = json.dumps(res) 
     
 if __name__ == "__main__":
     main()
