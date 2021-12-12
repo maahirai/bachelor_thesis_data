@@ -235,7 +235,10 @@ def main():
 
         for n in range(6):
             if str(n) in res_buffer_r[PM]:
+                module_name = "r"+str(n)
+                res[PM][module_name] = []
                 for pattern in res_buffer_r[PM][str(n)]:
+                    res[PM][module_name].append(pattern)
                     grid = gengrid(PM)
                     for i in range(GridSize):
                         for j in range(GridSize):
@@ -245,8 +248,11 @@ def main():
                     showGrid(grid)
                     cnt[n] += 1
                     cntperPM[pm] += 1
-        print("PM当たりのパターン: {}".format(cntperPM[pm]))    
+                    cnt_pattern += 1
+        #print("PM当たりのパターン: {}".format(cntperPM[pm]))    
+        print("all_patterns : {}".format(cnt_pattern))
 
+        print(res)
     #print(res)
     return
     with open("placement.json","w"):
