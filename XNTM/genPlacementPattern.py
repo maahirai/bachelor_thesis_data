@@ -49,11 +49,19 @@ def showGrid(grid):
             print("%2d"%(grid[y][x]),end=" ")
         print("\n")
 
+def numCells(M):
+    size = Msize(M)
+    ret = 1
+    for length in size:
+        ret *= length
+    return ret 
+
 def main():
     Mixer = ["6h","6v","4"]
-    reagent = ["1r","2r","3r","4r","5r"]
+    Reagent = ["1r","2r","3r","4r","5r"]
     res = {}
     cnt_pattern = 0
+    ### generating patterns that contains no flushing
     for p in range(len(Mixer)):
         pM = Mixer[p]
         psize = Msize(pM)
@@ -89,7 +97,7 @@ def main():
                             print("psize:{},csize:{}".format(psize,csize))
                             print("cnt:{}".format(cnt))
                             print("(ref_y,ref_x):{}".format((ref_y,ref_x)))
-                            showGrid(grid) 
+                            #showGrid(grid) 
     print("sum of number of no flushing patterns in placements of a overlappinng mixer on a mixer : {}".format(cnt_pattern))
     for i in range(len(Mixer)):
         c = 0
@@ -134,14 +142,14 @@ def main():
                                         dy = [0,0,1,-1]
                                         y,x = rmalt[j]
                                         for way in range(4):
-                                           neibor = [y+dy[way],x+dx[way]]
-                                           if neibor in FlushCells:
+                                           neighbor = [y+dy[way],x+dx[way]]
+                                           if neighbor in FlushCells:
                                                 isBad = False
                                         if isBad :
                                             ### skip i-th loop
                                             skip = True
                                 if skip :
-                                    print(DropLeftCells,FlushCells,sep='\t')
+                                    #print(DropLeftCells,FlushCells,sep='\t')
                                     grid = gengrid(Mixer[p])
                                     for sy in range(GridSize):
                                         for sx in range(GridSize):
@@ -149,7 +157,7 @@ def main():
                                                 grid[sy][sx] = 1
                                             if [sy,sx] in FlushCells:
                                                grid[sy][sx] = 0 
-                                    showGrid(grid)
+                                    #showGrid(grid)
                                     continue
                                 else :
                                     snumLeftDrops = str(len(DropLeftCells))
@@ -175,11 +183,74 @@ def main():
                         cnt_pattern += 1
                         cnt_flushpattern += 1
             print("parent - child : {} - {},cnt_needflush :{}".format(Mixer[p],Mixer[c],cnt_flushpattern))       
+    print("sum of number of need flushing patterns in placements of a overlappinng mixer on a mixer : {}".format(cnt_pattern))
+
+    ### generating patterns of placement of drop on mixer
+    res_buffer_r = {}
+    cnt = [0 for i in range(6)]
+    cntperPM = [0 for i in range(len(Mixer))]
+    for pm in range(len(Mixer)):
+        PM = Mixer[pm]
+        res_buffer_r[PM] = {} 
+
+        grid = gengrid(PM)
+        PMCells = []
+        for y in range(GridSize):
+            for x in range(GridSize):
+                if grid[y][x] == 0:
+                    cell = [y,x]
+                    PMCells.append(cell)
+
+        q = []
+        dx = [-1,1,0,0]
+        dy = [0,0,1,-1]
+        for cell in PMCells:
+            cells = [cell]
+            q.append(cells)
+            print(q)
+
+        ### generate r on M patterns with BFS
+        while q:
+            r = q.pop(0)
+            rSize = len(r)
+            if rSize < numCells(PM):
+                if str(rSize) not in res_buffer_r[PM]:
+                    res_buffer_r[PM][str(rSize)] = []
+                insert_data = sorted(r)
+                if insert_data not in res_buffer_r[PM][str(rSize)]:
+                    res_buffer_r[PM][str(rSize)].append(insert_data)
+
+                taili = rSize-1
+                tail = r[taili]
+                y,x = tail
+                for way in range(4):
+                    neighbor = [y+dy[way],x+dx[way]]
+                    if (neighbor in PMCells) and (neighbor not in r):
+                        nr = copy.deepcopy(r)
+                        nr.append(neighbor)
+                        q.append(nr)
+            else :
+                continue
+        
+
+        for n in range(6):
+            if str(n) in res_buffer_r[PM]:
+                for pattern in res_buffer_r[PM][str(n)]:
+                    grid = gengrid(PM)
+                    for i in range(GridSize):
+                        for j in range(GridSize):
+                            if [i,j] in pattern:
+                                grid[i][j] = 1
+                    print(pattern)
+                    showGrid(grid)
+                    cnt[n] += 1
+                    cntperPM[pm] += 1
+        print("PM当たりのパターン: {}".format(cntperPM[pm]))    
 
     #print(res)
     return
     with open("placement.json","w"):
         str_res = json.dumps(res) 
-
+    
 if __name__ == "__main__":
     main()
