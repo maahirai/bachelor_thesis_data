@@ -238,7 +238,8 @@ def main():
                 module_name = "r"+str(n)
                 res[PM][module_name] = []
                 for pattern in res_buffer_r[PM][str(n)]:
-                    res[PM][module_name].append(pattern)
+                    data = {"overlapping_cell":pattern}
+                    res[PM][module_name].append(data)
                     grid = gengrid(PM)
                     for i in range(GridSize):
                         for j in range(GridSize):
