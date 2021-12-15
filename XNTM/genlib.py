@@ -3,6 +3,7 @@ import copy
 import itertools
 import sys
 import datetime
+from pathlib import Path
 
 Mixer = ['6h','6v','4']
 Module = ['6h','6v','4','r1','r2','r3','r4','r5']
@@ -176,7 +177,7 @@ def getModule(module):
 
 def main():
     start = datetime.datetime.now()
-    readfile = open('data/placement.json','r')
+    readfile = open('XNTM/data/placement.json','r')
     pattern = json.load(readfile)
     prov_ratio = getProvRatio()
     ### generate the combination of placements of dropret left by children-mixers
@@ -187,11 +188,12 @@ def main():
         PM = Mixer[pm]
         lib[PM] = {}
         for ratio in prov_ratio[PM]:
-            lib[PM][str(ratio)] = []
+            lib[PM][str(ratio)] = {}
             RatioOrderedCombos = template[PM][str(ratio)]
             for RatioOrderedCombo in RatioOrderedCombos:
                 PermuCombo = list(itertools.permutations(RatioOrderedCombo,len(RatioOrderedCombo)))
                 for combo in PermuCombo:
+                #for combo in RatioOrderedCombo:
                     buffer = [[] for i in range(len(ratio)+1)]
                     ### [[[配置した6ミキサー],[配置した4ミキサー],[配置した試薬液滴]],[試薬液滴を残せるセル],[レイヤーの確認の為のgrid]]
                     buffer[0].append({"Module":{"6":[],"4":[],"r":[]},"CannotPlace":[],"Layer":gengrid(PM)})
@@ -228,16 +230,22 @@ def main():
                                                 buffer[idx+1].append(new_buff)
                     if buffer[len(ratio)]:
                         for data in buffer[len(ratio)]:
+                            modulecnt = [0,0,0]
+                            ModuleFirstC = ["6","4","r"]
+                            for idx,fc in enumerate(ModuleFirstC):
+                                modulecnt[idx] += len(data["Module"][ModuleFirstC[idx]])
                             del data["Layer"]
                             del data["CannotPlace"]
-                            lib[PM][str(ratio)].append(data)
+                            if str(modulecnt) not in lib[PM][str(ratio)]:
+                                lib[PM][str(ratio)][str(modulecnt)] = []
+                            lib[PM][str(ratio)][str(modulecnt)].append(data)
                     else :
                         print("ホンマ，ありえへんてぇ~!! in genlib.py",file=sys.stderr)
                     
 
     ### output lib to json file
-    with open("data/lib.json","w") as f:
-        json.dum(lib,f,indent=4)  
+    with open("XNTM/data/data/lib.json","w") as f:
+        json.dump(lib,f,indent=4)  
 
     end = datetime.datetime.now()
     diff = end-start
