@@ -18,11 +18,12 @@ def Msize(M):
         if Malt[i] == M:
             idx = i
     if idx == -1:
-        if M[-1:]=="r":
-            return int(M[:-1])
+        if M[0]=="r":
+            return int(M[1:])
         else :
             print("unexpected input!! in Msize()",file=sys.stderr)
-    else : return size[idx]
+    else : 
+        return size[idx]
 
 def numCells(M):
     size = Msize(M)
@@ -122,10 +123,13 @@ def genTemplate(pattern):
         prov_ratio = getProvRatio()
         for ratio in prov_ratio[PM]:
             buffer = [[] for i in range(len(ratio)+1)]
+            # [[[残っているセル]，[占拠されたセル]],[一回の配置で占拠されるセルの組]]
             start = [[rootAllCell(PM),[]],[]]
             buffer[0].append(start)
             
+            # すべての提供液滴が1つのモジュールから提供されてる場合()
             if numCells(PM) in ratio:
+                print("バグってるやん，ソレイ")
                 return
             for idx,num in enumerate(ratio):
                 for condition in buffer[idx]:
@@ -140,7 +144,9 @@ def genTemplate(pattern):
             for data in buffer[len(ratio)]:
                 if str(ratio) not in template[PM]:
                     template[PM][str(ratio)]=[]
-                template[PM][str(ratio)].append(data[1])
+                data[1] = sorted(data[1])
+                if data[1] not in template[PM][str(ratio)]:
+                    template[PM][str(ratio)].append(data[1])
             for i in buffer[len(ratio)][1]:
                 if not i:
                     print("なんでやねん")
@@ -166,7 +172,7 @@ def showColoredTemplate(prov_ratio,template):
 
 def search_placement(pattern,PM,module,drop):
     cnt_drop = len(drop)
-    return pattern[PM][module][str(cnt_drop)]
+    return pattern[PM][module][cnt_drop]
     
 def getModule(module):
     FirstLetter = ['6','4','r']
@@ -177,22 +183,26 @@ def getModule(module):
 
 def main():
     start = datetime.datetime.now()
-    readfile = open('XNTM/data/placement.json','r')
+    readfile = open('data/placement.json','r')
     pattern = json.load(readfile)
-    prov_ratio = getProvRatio()
+    readfile.close()
     ### generate the combination of placements of dropret left by children-mixers
     template = genTemplate(pattern)
+
+    prov_raito = getProvRatio()
     ### generate library of placement of children-mixers
     lib = {}
     for pm in range(len(Mixer)):
         PM = Mixer[pm]
         lib[PM] = {}
         for ratio in prov_ratio[PM]:
+            print("今から，ratio{}に取り掛かるで〜".format(ratio))
             lib[PM][str(ratio)] = {}
             RatioOrderedCombos = template[PM][str(ratio)]
             for RatioOrderedCombo in RatioOrderedCombos:
                 PermuCombo = list(itertools.permutations(RatioOrderedCombo,len(RatioOrderedCombo)))
                 for combo in PermuCombo:
+                    print("計算開始:{} in {}".format(combo,RatioOrderedCombo))
                 #for combo in RatioOrderedCombo:
                     buffer = [[] for i in range(len(ratio)+1)]
                     ### [[[配置した6ミキサー],[配置した4ミキサー],[配置した試薬液滴]],[試薬液滴を残せるセル],[レイヤーの確認の為のgrid]]
@@ -234,17 +244,18 @@ def main():
                             ModuleFirstC = ["6","4","r"]
                             for idx,fc in enumerate(ModuleFirstC):
                                 modulecnt[idx] += len(data["Module"][ModuleFirstC[idx]])
+                                data["Module"][ModuleFirstC[idx]] = sorted(data["Module"][ModuleFirstC[idx]],key=lambda x:x['overlapping_cell'])
                             del data["Layer"]
                             del data["CannotPlace"]
                             if str(modulecnt) not in lib[PM][str(ratio)]:
                                 lib[PM][str(ratio)][str(modulecnt)] = []
-                            lib[PM][str(ratio)][str(modulecnt)].append(data)
+                            if data not in lib[PM][str(ratio)][str(modulecnt)]:
+                                lib[PM][str(ratio)][str(modulecnt)].append(data)
                     else :
                         print("ホンマ，ありえへんてぇ~!! in genlib.py",file=sys.stderr)
-                    
 
     ### output lib to json file
-    with open("XNTM/data/data/lib.json","w") as f:
+    with open("XNTM/data/lib.json","w") as f:
         json.dump(lib,f,indent=4)  
 
     end = datetime.datetime.now()
