@@ -170,10 +170,6 @@ def showColoredTemplate(prov_ratio,template):
                     showGrid(grid)
                 print(PM,ratio,cnt,sep='\t')
 
-def search_placement(pattern,PM,module,drop):
-    cnt_drop = len(drop)
-    return pattern[PM][module][cnt_drop]
-    
 def getModule(module):
     FirstLetter = ['6','4','r']
     for i in range(len(FirstLetter)):
@@ -183,26 +179,26 @@ def getModule(module):
 
 def main():
     start = datetime.datetime.now()
-    readfile = open('data/placement.json','r')
+    readfile = open('XNTM/data/placement.json','r')
     pattern = json.load(readfile)
     readfile.close()
     ### generate the combination of placements of dropret left by children-mixers
     template = genTemplate(pattern)
 
-    prov_raito = getProvRatio()
+    prov_ratio = getProvRatio()
     ### generate library of placement of children-mixers
     lib = {}
     for pm in range(len(Mixer)):
         PM = Mixer[pm]
         lib[PM] = {}
         for ratio in prov_ratio[PM]:
-            print("今から，ratio{}に取り掛かるで〜".format(ratio))
+            #print("今から，ratio{}に取り掛かるで〜".format(ratio))
             lib[PM][str(ratio)] = {}
             RatioOrderedCombos = template[PM][str(ratio)]
             for RatioOrderedCombo in RatioOrderedCombos:
                 PermuCombo = list(itertools.permutations(RatioOrderedCombo,len(RatioOrderedCombo)))
                 for combo in PermuCombo:
-                    print("計算開始:{} in {}".format(combo,RatioOrderedCombo))
+                    #print("計算開始:{} in {}".format(combo,RatioOrderedCombo))
                 #for combo in RatioOrderedCombo:
                     buffer = [[] for i in range(len(ratio)+1)]
                     ### [[[配置した6ミキサー],[配置した4ミキサー],[配置した試薬液滴]],[試薬液滴を残せるセル],[レイヤーの確認の為のgrid]]
