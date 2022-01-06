@@ -56,10 +56,21 @@ def getMixerCoveringCell(RefCell,orientation=""):
 def getAllAncestorsHash(hash): 
     AncestorHash = []
     Hash = hash
-    while(NodeInfo[str(Hash)].ParentHash!=0):
-        AncestorHash.append(NodeInfo[str(Hash)].ParentHash)
-        Hash = NodeInfo[str(Hash)].ParentHash
+    while(getNode(Hash).ParentHash!=0):
+        AncestorHash.append(getNode(Hash).ParentHash)
+        Hash = getNode(Hash).ParentHash
     return AncestorHash 
+
+def getNode(hash): 
+    global NodeInfo 
+    return NodeInfo[str(hash)]
+
+def Mixing(MixerHash):
+    ChangeState(MixerHash,"OnlyProvDrop")   
+    for ProvCell in getNode(MixerHash).ProvCell: 
+        CellForProtectFromFlushing.append(ProvCell)
+    #for FlushCell in getNode(MixerHash).FlushCell:
+    #    CellForFlushing.append(FlushCell)
 
 ########################################################################################
 def getRatioAndPrefixOfChildren(mixer): 
@@ -68,7 +79,7 @@ def getRatioAndPrefixOfChildren(mixer):
     ratio = []
     modules = []
     for CHash in mixer.ChildrenHash:
-        Node = NodeInfo[str(CHash)]
+        Node = getNode(CHash)
         ratio.append(Node.ProvNum)
         if Node.kind == "Reagent":
             modules.append("r")
@@ -78,7 +89,7 @@ def getRatioAndPrefixOfChildren(mixer):
 
 def mv(lib,ParentMixerHash): 
     global NodeInfo
-    ParentMixer = NodeInfo[str(ParentMixerHash)]
+    ParentMixer = getNode(ParentMixerHash)
     ParentRefcell = ParentMixer.RefCell
     py,px = ParentRefcell
     diffY,diffX = py-2,px-2 
@@ -298,11 +309,12 @@ def NodeInfoInit(root):
             q.append(child)
     return 
           
-ForFlushRooting = []
+CellForFlushing = []
+CellForProtectFromFlushing = []
 PlacementSkipped = []
 WaitingProvDrops = []
 OnlyProvDrop = []
-AtTopOfPlaced = []
+AtTopOfPlacedMixer = []
 Done = []
 
 def PMDRootPlace(root,RefCell):
@@ -319,17 +331,19 @@ def PMDRootPlace(root,RefCell):
     ### Registering the root mixer
     NodeInfo[str(root.hash)] = RootMixer
     MixerNodeHash.append(root.hash)
-    ChangeState(root.hash,"AtTopOfPlaced")
+    ChangeState(root.hash,"AtTopOfPlacedMixer")
     return root.hash
 
 def ChangeState(Hash,NextState): 
-    global AtTopOfPlaced,WaitingProvDrops,OnlyProvDrop,PlacementSkipped,Done
-    ModuleKind = NodeInfo[str(Hash)].kind 
-    Now = NodeInfo[str(Hash)].state
+    global AtTopOfPlacedMixer,WaitingProvDrops,OnlyProvDrop,PlacementSkipped,Done
+    ModuleKind = getNode(Hash).kind 
+    Now = getNode(Hash).state
+
+    print(ModuleKind,Hash,WaitingProvDrops)
     if Now == "NoTreatment": 
-        if NextState == "AtTopOfPlaced": 
+        if NextState == "AtTopOfPlacedMixer": 
             if ModuleKind == "Mixer": 
-                AtTopOfPlaced.append(Hash)
+                AtTopOfPlacedMixer.append(Hash)
                 NodeInfo[str(Hash)].state = NextState 
             else:
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
@@ -346,28 +360,28 @@ def ChangeState(Hash,NextState):
                 pass 
         else : 
             print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
-    elif Now == "AtTopOfPlaced": 
+    elif Now == "AtTopOfPlacedMixer": 
         if NextState == "WaitingProvDrops": 
-            if ModuleKind == "Mixer" and Hash in AtTopOfPlaced: 
-                AtTopOfPlaced.remove(Hash)
+            if ModuleKind == "Mixer" and Hash in AtTopOfPlacedMixer: 
+                AtTopOfPlacedMixer.remove(Hash)
                 WaitingProvDrops.append(Hash)
                 NodeInfo[str(Hash)].state = NextState 
             else :
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
         elif NextState == "OnlyProvDrop": 
-            if ModuleKind == "Mixer" and Hash in AtTopOfPlaced: 
-                AtTopOfPlaced.remove(Hash)
+            if ModuleKind == "Mixer" and Hash in AtTopOfPlacedMixer: 
+                AtTopOfPlacedMixer.remove(Hash)
                 OnlyProvDrop.append(Hash)
                 NodeInfo[str(Hash)].state = NextState 
             else :
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
         else : 
             print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
-    elif Now == "WaitinProvDrops": 
-        if NextState == "AtTopOfPlaced":
-            if ModuleKind == "Mixer" and Hash in WaitingProvDrops: 
+    elif Now == "WaitingProvDrops": 
+        if NextState == "AtTopOfPlacedMixer":
+            if ModuleKind == "Mixer" and (Hash in WaitingProvDrops): 
                 WaitingProvDrops.remove(Hash) 
-                AtTopOfPlaced.append(Hash)
+                AtTopOfPlacedMixer.append(Hash)
                 NodeInfo[str(Hash)].state = NextState 
             else :
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
@@ -382,7 +396,7 @@ def ChangeState(Hash,NextState):
             else : 
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
     elif Now == "PlacementSkipped": 
-        if NextState == "AtTopOfPlaced": 
+        if NextState == "AtTopOfPlacedMixer": 
             ### ライブラリから抜き出す
             pass 
         else : 
@@ -390,11 +404,23 @@ def ChangeState(Hash,NextState):
     else : 
         print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
 
+def PlaceChildren(ParentMixerHash): 
+    global NodeInfo
+    ChangeState(ParentMixerHash,"WaitingProvDrops")
+    ParentMixer = getNode(ParentMixerHash)
+    MixerAttribute = str(ParentMixer.size) + ParentMixer.orientation
+    RatioAndPrefix = getRatioAndPrefixOfChildren(ParentMixer)
+    Ratio,Prefix = RatioAndPrefix 
+    ### getOptなど使う pass
+    lib = getLib(MixerAttribute,Ratio,Prefix)
+    placelib(lib,ParentMixerHash)
+
 def place(PlaceCells,v): 
     global PMDState
     for cell in PlaceCells: 
         y,x = cell 
-        PMDState[y][x] = v 
+        PMDState[y][x] = -1*v 
+
 
 ### テスト用の仮設．オーバーラップに対応できないなど，欠陥品 optlibとplaceを使う構成が本来．
 def placelib(lib,ParentMixerHash): 
@@ -403,7 +429,6 @@ def placelib(lib,ParentMixerHash):
     MovedPattern = mv(pattern,ParentMixerHash)
     LayeredLib = getLayeredLib(MovedPattern)
     global MaxLayerNum
-    ChangeState(ParentMixerHash,"WaitingProvDrops")
     
     for layer in range(MaxLayerNum): 
         for prefix in ModulePrefix: 
@@ -414,6 +439,13 @@ def placelib(lib,ParentMixerHash):
                 else : 
                     if "ref_cell" not in pattern : 
                         place(pattern["overlapping_cell"],1000)
+                    else : 
+                        place(pattern["overlapping_cell"]+pattern["flushing_cell"],3000)
+    for CHash in getNode(ParentMixerHash).ChildrenHash: 
+        if getNode(CHash).kind == "Reagent": 
+            ChangeState(CHash,"OnlyProvDrop")
+        else : 
+            ChangeState(CHash,"AtTopOfPlacedMixer")
 
     
 ### lib内のパターンは評価の際に対応するハッシュ値をパッキングする．
@@ -421,7 +453,7 @@ def placelib(lib,ParentMixerHash):
 ### ParentMixer = str(mixer.size) + mixer.orientation
 
 def xntm(root,PMDsize):
-    global PMDState,NodeInfo,PlacementSkipped,WaitingProvDrops,AtTopOfPlaced,ForFlushRooting
+    global PMDState,NodeInfo,PlacementSkipped,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing
     Vsize,Hsize = PMDsize
     PMDState = [[0 for j in range(Hsize)] for i in range(Vsize)]
     ### -1はどっちでもいい，0はFlushするセル，1はProvDropなので守る必要あり．
@@ -429,18 +461,39 @@ def xntm(root,PMDsize):
     
     ### placement of root mixer
     RefCell = [(Vsize-1)//2,(Hsize-1)//2]
-    PMDRootPlace(root,RefCell)
+    RootHash = PMDRootPlace(root,RefCell)
     NodeInfoInit(root)
+    print(AtTopOfPlacedMixer)
     
-    while PlacementSkipped or WaitingProvDrops or AtTopOfPlaced :
-        for ModuleHash in AtTopOfPlaced: 
-            module = NodeInfo[str(ModuleHash)]
-            if module.kind == "Mixer": 
-                ParentMixer = str(module.size) + module.orientation
-                tmp = getRatioAndPrefixOfChildren(module)
-                Ratio,Prefix = tmp
-                lib = getLib(ParentMixer,Ratio,Prefix)
-                placelib(lib,ModuleHash)
-                print(PMDState)
-                return 
+    while PlacementSkipped or WaitingProvDrops or AtTopOfPlacedMixer or OnlyProvDrop:
+        print(AtTopOfPlacedMixer)
+        print(WaitingProvDrops)
+        print(OnlyProvDrop)
+        if getNode(RootHash).state == "OnlyProvDrop": 
+            print("混合手順生成完了")
+            break
+        for MixerHash in AtTopOfPlacedMixer: 
+            mixer = getNode(MixerHash) 
+            isReadyForMixing = True
+            shouldPlaceChildren = False
+            for ChildHash in mixer.ChildrenHash:
+                if getNode(ChildHash).state != "OnlyProvDrop": 
+                   isReadyForMixing = False 
+                if getNode(ChildHash).state == "NoTreatment": 
+                   shouldPlaceChildren = True 
+            if shouldPlaceChildren: 
+                PlaceChildren(MixerHash)
+            elif isReadyForMixing : 
+                Mixing(MixerHash)
+            else : 
+                continue
+            print(PMDState)
+        for MixerHash in WaitingProvDrops:
+            isDropsProvidedByChildrenReady = True
+            for ChildHash in getNode(MixerHash).ChildrenHash: 
+                if getNode(ChildHash).state != "OnlyProvDrop": 
+                    isDropsProvidedByChildrenReadyReady = False 
+            if isDropsProvidedByChildrenReady : 
+                ChangeState(MixerHash,"AtTopOfPlacedMixer")
 
+         
