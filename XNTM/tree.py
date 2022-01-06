@@ -1,4 +1,7 @@
 import random
+import sys
+
+Registered_Hash = []
 
 class node(object):
     def __init__(self, name, size=6, provide_vol=0, children = None ):
@@ -6,8 +9,11 @@ class node(object):
         self.size = size
         self.provide_vol = provide_vol
         self.children = children if children else []
-
-        self.hash = random.randint(1,100000001)
+        hash_v = 1
+        while(hash_v in Registered_Hash):
+            hash_v = random.randint(1,100001)
+        Registered_Hash.append(hash_v)
+        self.hash = hash_v 
 
 def IsMixerNode(Node):
     if IsMixerName(Node.name):
@@ -21,10 +27,7 @@ def IsMixerName(name):
     else :
         return False
 
-
-
 ######################################################################################
-#$BF~NO$rLZ9=B$$XJQ49(B
 MIX_COUNTER = 0
 
 def InputToTree(Input):
@@ -34,19 +37,22 @@ def InputToTree(Input):
 
 def _InputToTree(Input,provide_vol):
     global MIX_COUNTER
-    root = node('M',size=sum(Input[0]),provide_vol=provide_vol)
-    MIX_COUNTER += 1 
-    for idx,item in enumerate(Input[1:]):
-        ### mixer
-        if type(item) == list:
-            root.children.append(_InputToTree(item,Input[0][idx]))
-        ### droplet of reagent
-        elif type(item) == str:
-            root.children.append(node(item,size=Input[0][idx],provide_vol=Input[0][idx]))
-        else :
-            pass
-        idx += 1
-    return root
+    RootNodeSize = sum(Input[0])
+    if RootNodeSize == 6 or RootNodeSize == 4:
+        root = node('M',size=sum(Input[0]),provide_vol=provide_vol)
+        MIX_COUNTER += 1 
+        for idx,item in enumerate(Input[1:]):
+            ### mixer
+            if type(item) == list:
+                root.children.append(_InputToTree(item,Input[0][idx]))
+            ### droplet of reagent
+            elif type(item) == str:
+                root.children.append(node(item,size=Input[0][idx],provide_vol=Input[0][idx]))
+            else :
+                pass
+        return root
+    else :
+        print("入力された希釈木データに異常あり．希釈木に含まれるミキサーサイズは4，もしくは，6のみです．",file=sys.stderr)
     
 def LabelingMixers(root):
     q = []
@@ -71,7 +77,7 @@ lNumChildMixer = []
 
 def TransformTree(root):
     global lNumChildMixer,MIX_COUNTER
-    lNumChildMixer = list(itertools.repeat(0,MIX_COUNTER))
+    lNumChildMixer = list(itertools.repeat(-1,MIX_COUNTER))
     transformed_tree = _TransformTree(root)
     return transformed_tree
 
@@ -105,7 +111,7 @@ def NumChildMixer(root):
         return 0
     else :
         mixeridx = int(root.name[1:])
-        if not lNumChildMixer[mixeridx] == 0:
+        if not lNumChildMixer[mixeridx] == -1:
             return lNumChildMixer[mixeridx]
         else :
             v = 0
@@ -154,16 +160,15 @@ def _createTree(root, label=None):
         for d in range(3):
             RGB = RGB * 256 + random.randint(64,255)
 
-        ### $B;nLt1UE)%N!<%I$NI=<(@_Dj(B
+        ### 試薬液滴ノードの出力設定
         shape,color,width='plaintext',"#FFFFFF","0.3" 
-        ### $B%_%-%5!<%N!<%I$NI=<(@_Dj(B
+        ### ミキサーノードの出力設定
         if node[1][0]=="M" :
             mixeridx = int(node[1][1:])
             if ColorList[mixeridx] == "#000000":
                 ColorList[mixeridx] = "#"+hex(RGB)[2:]
             shape,color,width = 'circle',ColorList[mixeridx],"0.75"
         n = pydot.Node(node[0], shape = shape,label=node[1],fillcolor=color ,width= width)
-        ### $B%_%-%5!<$O1_$G0O$`!$;nLt1UE)$O%F%-%9%H$N$_(B.
         P.add_node(n)
     
     # Edges
@@ -187,7 +192,6 @@ def viewTree(root):
 
 import os
 from .utility import create_directory
-### $B4u<aLZ$N<L??$NJ]B8(B
 def saveTree(root, save):
     save = save.split('/')
     dir_name = '/'.join(save[:-1])
