@@ -52,7 +52,7 @@ def _InputToTree(Input,provide_vol):
                 pass
         return root
     else :
-        print("入力された希釈木データに異常あり．希釈木に含まれるミキサーサイズは4，もしくは，6のみです．",file=sys.stderr)
+        print("入力された希釈木データに異常あり．希釈木に含まれるミキサーのサイズは4，もしくは，6のみです．",file=sys.stderr)
     
 def LabelingMixers(root):
     q = []
