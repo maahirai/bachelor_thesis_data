@@ -13,6 +13,7 @@ class Module:
         self.ChildrenHash = []
         self.ProvNum = node.provide_vol
         self.kind = "Reagent" if self.ProvNum == self.size else "Mixer" 
+        self.SubTreeDepth = 0
         for c in node.children:
             self.ChildrenHash.append(c.hash)
 
@@ -76,11 +77,19 @@ def Mixing(MixerHash):
         CellForProtectFromFlushing.append(ProvCell)
     for FlushCell in getNode(MixerHash).FlushCell:
         CellForFlushing.append(FlushCell)
+def Flush(): 
+    pass 
+
+def WritePMD(PlaceCells,v): 
+    global PMDState
+    for cell in PlaceCells: 
+        y,x = cell 
+        PMDState[y][x] = v
 
 ########################################################################################
-def getRatioAndPrefixOfChildren(mixer): 
-    global NodeInfo
-    PHash = mixer.hash 
+def getRatioAndPrefixOfChildren(MHash): 
+    global NodeInfo 
+    mixer = getNode(MHash)
     ratio = []
     modules = []
     for CHash in mixer.ChildrenHash:
@@ -99,11 +108,11 @@ def mv(lib,ParentMixerHash):
     py,px = ParentRefcell
     diffY,diffX = py-2,px-2 
     ### Acording to the diffRefCell, modify the cell
-    MovedLib = copy.deepcopy(lib)
+    Movedlib = copy.deepcopy(lib)
     for prefix in ModulePrefix:
-        for pattern in MovedLib["Module"][prefix]:
+        for pattern in Movedlib["Module"][prefix]:
             if "ref_cell" in pattern: 
-                y,x = pattern
+                y,x = pattern["ref_cell"]
                 MovedRefCell = [y+diffY,x+diffX]
                 pattern["ref_cell"] = MovedRefCell
             if "flushing_cell" in pattern: 
@@ -112,7 +121,7 @@ def mv(lib,ParentMixerHash):
                     y,x = cell
                     MovedCell = [y+diffY,x+diffX]
                     MovedCells.append(MovedCell)
-                pattern["flushing_pattern"] = MovedCells 
+                pattern["flushing_cell"] = MovedCells 
             if "overlapping_cell" in pattern: 
                 MovedCells = []
                 for cell in pattern["overlapping_cell"]: 
@@ -120,11 +129,12 @@ def mv(lib,ParentMixerHash):
                     MovedCell = [y+diffY,x+diffX]
                     MovedCells.append(MovedCell)
                 pattern["overlapping_cell"] = MovedCells 
-    return MovedLib 
+    return Movedlib 
 
 ### functions relating library
 def GenLibKey(ratio,Modules): 
     # 6Mixer,4Mixer,Reagent Dropletについて，それぞれ含まれる数と親ミキサーに提供する液滴数をソートしたものを返す
+    global ModulePrefix
     UsedNum = [0 for i in range(len(ModulePrefix))]
     ProvDropNum = ["" for i in range(len(ModulePrefix))]
     for idx,module in enumerate(Modules): 
@@ -132,14 +142,13 @@ def GenLibKey(ratio,Modules):
         ProvDropNum[getModulePrefixIdx(module)] += (str(ratio[idx]))
 
     for i in range(len(ModulePrefix)): 
-        ProvDropNum[i] = "".join(sorted(ProvDropNum[i]))
+        ProvDropNum[i] = "".join(sorted(ProvDropNum[i],reverse=True))
     ret = []
     for i in range(len(ModulePrefix)):
         data = []
         data.append(UsedNum[i])
         data.append([ProvDropNum[i]])
         ret.append(data)
-
     key = str(ret)
     RemovedChars = " '"
     for c in RemovedChars: 
@@ -147,27 +156,32 @@ def GenLibKey(ratio,Modules):
     return key
 
 ### lib.jsonから該当値を抜き出してきて，返す
-def _getLib(ParentMixer,ratio,EachModuleName):
-    SortedRatio = sorted(ratio)
-    key = GenLibKey(ratio,EachModuleName)
-    FileName = ("lib"+ParentMixer+str(SortedRatio)+key+".json").replace(" ","")
+def _getLib(ParentMixerHash):
+    ParentMixer = getNode(ParentMixerHash)
+    PMixerAttribute = str(ParentMixer.size) + ParentMixer.orientation
+    RatioAndPrefix = getRatioAndPrefixOfChildren(ParentMixerHash)
+    Ratio,Prefix = RatioAndPrefix 
+    key = GenLibKey(Ratio,Prefix)
+    SortedRatio = sorted(Ratio,reverse=True)
+    FileName = ("lib"+PMixerAttribute+str(SortedRatio)+key+".json").replace(" ","")
 
     LibPath = Path("XNTM/sepdata/",FileName)
     readfile = open(LibPath,'r')
     lib = json.load(readfile)
     return lib
         
-def getLib(ParentMixer,ratio,RatioOrderedModuleName):
-    ret = _getLib(ParentMixer,ratio,RatioOrderedModuleName)
+def getLib(ParentMixerHash):
+    ret = _getLib(ParentMixerHash)
     return ret
 
 from itertools import permutations
-def AssignModuleToLib(lib,PHash): 
+def AssignModuleTolib(lib,PHash): 
     global ModulePrefix
     parent = getNode(PHash) 
     ### 子供の分類
-    KeyChildInfo = set()
+    KeyChildInfo = []
     ChildInfo = {}
+    
     for CHash in parent.ChildrenHash: 
         child = getNode(CHash) 
         info = ""
@@ -177,176 +191,178 @@ def AssignModuleToLib(lib,PHash):
         else :
              info = "r"+str(child.ProvNum)
         if info not in KeyChildInfo:
-            KeyChildInfo.add(info)
+            KeyChildInfo.append(info)
             ChildInfo[str(info)] = []
         ChildInfo[str(info)].append(CHash)
     ### lib内のパターンをモジュールのサイズとprov_sizeで分類
-    LibClassification = {}
+    PatternClassification = {}
     for prefix in ModulePrefix: 
         for pattern in lib["Module"][prefix]: 
             ProvNum = len(pattern["overlapping_cell"])
             key = prefix + str(ProvNum)
-            if key not in LibClassification: 
-                LibClassification[key] = []
-            LibClassification[key].append(pattern)
+            if key not in PatternClassification: 
+                PatternClassification[key] = []
+            PatternClassification[key].append(pattern)
     ### 割当
-    print(LibClassification)
     ret = [{"Module":{"6":[],"4":[],"r":[]}}]
-    for assignment in ret : 
-        data = copy.deepcopy(assignment)
-        for key in KeyChildInfo:     
-            ChildHashes = ChildInfo[info] 
+    for key in KeyChildInfo:     
+        ChildHashes = ChildInfo[key] 
+        nret = []
+        for assignment in ret : 
             perm = permutations(ChildHashes)
             for combo in perm: 
+                data = copy.deepcopy(assignment)
                 for idx,hash in enumerate(combo):
-                    pattern = copy.deepcopy(LibClassification[key][idx])
+                    pattern = copy.deepcopy(PatternClassification[key][idx])
                     pattern["hash"] = hash 
                     # 6 or 4 or r
-                    ModulePrefix = key[0]
-                    data["Module"][ModulePrefix].append(pattern)
-        ret.append(data)
-        ret.remove(assignment)
+                    prefix = key[0]
+                    data["Module"][prefix].append(pattern)
+                nret.append(data)
+        ret = nret 
     return ret
 
     
-MaxLayerNum = 5
-def getLayeredLib(lib): 
-    global MaxLayerNum
-    LayeredLib = [[[] for i in range(len(ModulePrefix))] for j in range(MaxLayerNum)]
+MaxLayerNum = 6 
+def getLayeredlib(lib): 
+    global MaxLayerNum 
+    if lib == {}: 
+        return {}
+    Layeredlib = [[[] for i in range(len(ModulePrefix))] for j in range(MaxLayerNum)]
     for prefix in ModulePrefix: 
         ModulePatterns = lib["Module"][prefix]
         for pattern in ModulePatterns: 
             ### layer-value starts from 1 so you should modify to use the value as array index
             layer = pattern["layer"]-1
             idx = getModulePrefixIdx(prefix)
-            LayeredLib[layer][idx].append(pattern)
-    return LayeredLib 
+            Layeredlib[layer][idx].append(pattern)
+    return Layeredlib 
 
+def isEmptyLayeredlib(lib): 
+    global MaxLayerNum 
+    for i in range(MaxLayerNum): 
+        for j in range(len(ModulePrefix)): 
+            if lib[i][j]: 
+                return False 
+    return True
 
-#def hasAncestorAsParent(CheckCellState,Module):
-#    global NodeInfo 
-#    Ancestor = getAllAncestorsHash(Module)
-#    if NodeInfo[str(CheckCellState)].ParentHash in Ancestor:
-#        return True 
-#    else : 
-#        return False
+def OK(CheckCell,CheckCellState,ModuleHash):
+    global NodeInfo 
+    checkHash = abs(CheckCellState)
+    if CheckCell in NodeInfo[str(checkHash)].ProvCell: 
+        Ancestor = getAllAncestorsHash(ModuleHash)
+        if NodeInfo[str(checkHash)].ParentHash in Ancestor:
+            return False
+    else : 
+        return True
 
-#def getAllCheckCells(CheckCells,ExpandDirection,SubTreeDepth): 
-#    global Hsize,Vsize
-#    ret = CheckCells
-#    YMin,YMax  = 10000,0
-#    XMin,XMax = 10000,0
-#
-#    for cell in CheckCells: 
-#        y,x = cell 
-#        if y < YMin : 
-#            YMin = y 
-#        if YMax < y : 
-#            YMax = y 
-#        if x < XMin : 
-#            XMin = x
-#        if XMax < x : 
-#            XMax = x 
-#
-#    dy = [0,1,0,-1]
-#    dx = [-1,0,1,0]
-#    for idx,direction in enumerate(ExpandDirection) : 
-#        if direction: 
-#            if dx[direction] != 0:
-#                if dx[direction] > 0:
-#                    XMax += SubTreeDepth 
-#                else : 
-#                    XMin -= SubTreeDepth
-#            else : 
-#                if dy[direction] > 0: 
-#                    YMax += SubTreeDepth 
-#                else : 
-#                    YMin -= SubTreeDepth 
-#    for y in range(YMin,YMax+1): 
-#        for x in range(XMin,XMax+1): 
-#            if 0 < y and y < Vsize and 0 < x and x < Hsize :
-#                AddCell = [y,x]
-#                if AddCell not in ret: 
-#                    ret.append(AddCell)
-#    return ret
+def getAllCheckCells(CheckCells,ExpandDirection,SubTreeDepth): 
+    global Hsize,Vsize
+    ret = CheckCells
+    YMin,YMax  = 10000,0
+    XMin,XMax = 10000,0
 
-def EvalLib(lib,PHash):
-    global PMDState,NodeInfo,MaxLayerNum
-    CopyPMD = copy.deepcopy(PMDState)  
-    ParentMixer = getNode(PHash)
-    ParentCoveringCell = ParentMixer.CoveringCell
-    ParentRefcell = ParentMixer.RefCell
-    py,px = ParentRefcell
-    diffRefCell = [py-2,px-2]
-    ### Acording to the diffRefCell, modify the cell
-    MovedPattern = mv(lib,diffRefCell)
-    AssignedLib = AssigneModuleToLib(lib,PHash)
+    for cell in CheckCells: 
+        y,x = cell 
+        if y < YMin : 
+            YMin = y 
+        if YMax < y : 
+            YMax = y 
+        if x < XMin : 
+            XMin = x
+        if XMax < x : 
+            XMax = x 
+    dy = [0,1,0,-1]
+    dx = [-1,0,1,0]
+    for idx,direction in enumerate(ExpandDirection) : 
+        if direction: 
+            if dx[idx] != 0:
+                if dx[idx] > 0:
+                    XMax += SubTreeDepth 
+                else : 
+                    XMin -= SubTreeDepth
+            else :
+                if dy[idx] > 0: 
+                    YMax += SubTreeDepth 
+                else : 
+                    YMin -= SubTreeDepth 
+    for y in range(YMin,YMax+1): 
+        for x in range(XMin,XMax+1): 
+            if 0 <= y and y < Vsize and 0 <= x and x < Hsize :
+                AddCell = [y,x]
+                if AddCell not in ret: 
+                    ret.append(AddCell)
+    return ret
 
+def Evallib(lib,PHash):
+    global PMDState,MaxLayerNum
+    PMixer = getNode(PHash)
     
-    ### sort lib by layer value 
-    LayeredMovedPattern = getLayeredLib(Movedlib)
+    PMixerCoveringCell = PMixer.CoveringCell
+    dy = [0,1,0,-1]
+    dx = [-1,0,1,0]
+    Layeredlib = getLayeredlib(lib)
+    # lib内の各パターンを評価する
     evalv = 0 
+    ChildrenHashes = copy.deepcopy(PMixer.ChildrenHash)
     for layer in range(MaxLayerNum): 
         for prefix in ModulePrefix: 
-            PatternLayerModule = LayeredLib[layer][getModulePrefixIdx(prefix)]
-            for pattern in PatternLayerModule: 
-                ### At First, get Module Covering Cells 
-                CheckCells = []
-                ### 6Mixer or 4Mixer
-                if "ref_cell" in pattern: 
-                    RefY,RefX = pattern["ref_cell"]
-                    DiffY,DiffX = diffRefCell
-                    RefCellMoved = [RefY+DiffY,RefX+DiffX]
-                    ### 6Mixer
-                    if "orientation" in pattern: 
-                        CheckCells = getMixerCoveringCell(RefCellMoved,orientation=pattern[orientation])
-                    else :
-                        CheckCells = getMixerCoveringCell(RefCellMoved)
-                else :
-                    CoveringCell = pattern["overlapping_cell"]
-                ExpandDirection = [False for i in range(4)]
-                dy = [0,1,0,-1]
-                dx = [-1,0,1,0]
-                for cell in pattern["overlapping_cell"]: 
+            Patterns = Layeredlib[layer][getModulePrefixIdx(prefix)]
+            for pattern in Patterns:
+                ### 変形した希釈木に対応したミキサーの順番で配置しているかチェック
+                Chash = pattern["hash"]
+                if getNode(Chash).kind == "Mixer": 
+                    while(ChildrenHashes):
+                        CmpHash = ChildrenHashes.pop(0)
+                        if getNode(CmpHash).kind == "Mixer": 
+                            if CmpHash != Chash: 
+                                evalv+= 10000001.0
+                            else : 
+                                break
+                        else : 
+                            continue
+
+                evalv += 10.0**(layer+1)
+                ProvCell = pattern["overlapping_cell"]
+                PatternCoveringCells = pattern["overlapping_cell"]
+                if "flushing_cell" in pattern: 
+                    PatternCoveringCells += pattern["flushing_cell"]
+                for cell in PatternCoveringCells:
+                    y,x = cell
+                    CheckCellState = PMDState[y][x]
+                    if CheckCellState != 0 and not OK(cell,CheckCellState,pattern["hash"]): 
+                        evalv+= 10000001.0
+                ### 各prov_cellの4方に同lib内patternのprov_cellが無いかチェックする
+                OkDirection = [False for i in range(4)]
+                for y,x in ProvCell: 
                     for direction in range(4): 
-                        y,x = cell 
-                        ty,tx = y+dy[direction],x+dx[direction] 
-                        tCell = [ty,tx]
-                        if tCell not in ParentCoveringCell:
-                            ExpandDirection[direction] = True
-                SubTreeDepth = getSubTreeDepth(mixer)
-                ### 評価する範囲を決定
-                CheckCells = getAllCheckCells(CheckCells,ExpandDirection,SubTreeDepth)
-                for CheckCell in CheckCells: 
-                    CheckY,CheckX = CheckCell
-                    CheckCellState = PMDState[CheckY][CheckX] 
-                    if CheckCellState > 0:
-                        evalv += 1
-                        if hasAncestorAsParent(CheckCellState,ModuleHash):
-                            ### 失格 
-                            evalv += 10000
+                        CheckCell = [y+dy[direction],x+dx[direction]]
+                        if CheckCell not in PMixerCoveringCell: 
+                            OkDirection[direction] = True 
+                AllCheckCells = getAllCheckCells(PMixerCoveringCell,OkDirection,getNode(pattern["hash"]).SubTreeDepth)
+                for CheckCell in AllCheckCells: 
+                    checkY,checkX = CheckCell
+                    CheckCellState = PMDState[checkY][checkX]
+                    if CheckCellState != 0 and CheckCellState != PHash:
+                        evalv += 10.0**layer
     return evalv
 
-def getOptLib(mixer): 
-    PHash = mixer.hash 
-    ratio = []
-    modules = []
-    for CHash in mixer.ChildrenHash:
-        Node = NodeInfo[str(CHash)]
-        ratio.append(Node.ProvNum)
-        if Node.size == Node.ProvNum:
-            modules.append(Node.name)
-        else : 
-            modules.append(str(Node.size))
-    ParentMixer = str(mixer.size) + mixer.orientation
-    lib = getLib(ParentMixer,ratio,modules)
-    ValueAndLib = []
-    for l in lib: 
-        data =  EvalLib(l,PHash)
-        ValueAndLib.append(data)
-    SortedLib = sorted(ValueAndLib,reverse=True)
-    OptLib = SortedLib[0][1]
-    return OptLib
+def getOptlib(PHash): 
+    Optlib = {}
+    Lib = getLib(PHash)
+    min_v = 100000000000000.0
+    for lib in Lib: 
+        Assignedlib = AssignModuleTolib(lib,PHash)
+        for alib in Assignedlib: 
+            #if alib == {"Module":{"6":[],"4":[],"r":[]}} or alib == {}: 
+            #    continue 
+            alib = mv(alib,PHash)
+            v =  Evallib(alib,PHash)
+            if v < min_v: 
+                min_v = v 
+                Optlib = alib 
+    print(Optlib)
+    return Optlib
 
 ##################################### xntm #####################################
 
@@ -358,14 +374,30 @@ def NodeInfoInit(root):
     global NodeInfo,MixerNodeHash
     q = []
     q.append(root)
+    leaves = []
     while(q): 
         e = q.pop(0)
+        if not e.children: 
+            leaves.append(e.hash)
         for child in e.children:
             module = Module(child,e.hash)
             NodeInfo[str(module.hash)] = module 
             if child.size != child.provide_vol:
                 MixerNodeHash.append(module.hash)
             q.append(child)
+    q = []
+    for leaf in leaves: 
+        e = [leaf,0]
+        q.append(e)
+    while(q): 
+        e = q.pop(0)
+        hash,height = e 
+        Node = getNode(hash)
+        if  Node.SubTreeDepth < height: 
+            NodeInfo[str(hash)].SubTreeDepth = height
+        PHash = Node.ParentHash
+        if PHash != 0 : 
+            q.append([PHash,height+1])
     return 
           
 CellForFlushing = []
@@ -393,12 +425,22 @@ def PMDRootPlace(root,RefCell):
     ChangeState(root.hash,"AtTopOfPlacedMixer")
     return root.hash
 
+def WritePlacementInfo(pattern,Hash): 
+    global NodeInfo 
+    if "ref_cell" in pattern: 
+        NodeInfo[str(Hash)].RefCell = pattern["ref_cell"]
+    if "orientation" in pattern: 
+        NodeInfo[str(Hash)].orientation = pattern["orientation"]
+    NodeInfo[str(Hash)].ProvCell = pattern["overlapping_cell"]
+    NodeInfo[str(Hash)].FlushCell = pattern["flushing_cell"]
+    NodeInfo[str(Hash)].CoveringCell = pattern["overlapping_cell"]+pattern["flushing_cell"]
+    return 
+
 def ChangeState(Hash,NextState): 
-    global AtTopOfPlacedMixer,WaitingProvDrops,OnlyProvDrop,PlacementSkipped,Done
+    global AtTopOfPlacedMixer,WaitingProvDrops,OnlyProvDrop,PlacementSkipped,Done 
     ModuleKind = getNode(Hash).kind 
     Now = getNode(Hash).state
 
-    print(ModuleKind,Hash,WaitingProvDrops)
     if Now == "NoTreatment": 
         if NextState == "AtTopOfPlacedMixer": 
             if ModuleKind == "Mixer": 
@@ -466,47 +508,62 @@ def ChangeState(Hash,NextState):
 def PlaceChildren(ParentMixerHash): 
     global NodeInfo
     ChangeState(ParentMixerHash,"WaitingProvDrops")
-    ParentMixer = getNode(ParentMixerHash)
-    MixerAttribute = str(ParentMixer.size) + ParentMixer.orientation
-    RatioAndPrefix = getRatioAndPrefixOfChildren(ParentMixer)
-    Ratio,Prefix = RatioAndPrefix 
-    ### getOptなど使う pass
-    lib = getLib(MixerAttribute,Ratio,Prefix)
-    placelib(lib,ParentMixerHash)
-
-def place(PlaceCells,v): 
-    global PMDState
-    for cell in PlaceCells: 
-        y,x = cell 
-        PMDState[y][x] = -1*v 
-
-### テスト用の仮設．オーバーラップに対応できないなど，欠陥品 optlibとplaceを使う構成が本来．
-def placelib(lib,ParentMixerHash): 
-    ### pass 消す
-    p= lib.pop()
-    pa = AssignModuleToLib(p,ParentMixerHash)
-    pattern = pa.pop()
-    MovedPattern = mv(pattern,ParentMixerHash)
-    LayeredLib = getLayeredLib(MovedPattern)
-    global MaxLayerNum
     
+    ### getOptなど使う pass
+    lib = getOptlib(ParentMixerHash)
+    Layeredlib = getLayeredlib(lib)
+    RestOflib = placelib(Layeredlib,ParentMixerHash)
+    ### 配置しきったなら
+    if not RestOflib: 
+        return 
+    else : 
+        PlacementSkipped.append(RestOflib)
+
+def NoOverlapping(pattern): 
+    global PMDState 
+    ParentMixerHash = getNode(pattern["hash"]).ParentHash
+    Cells = pattern["overlapping_cell"]
+    if "flushing_cell" in pattern: 
+        Cells = Cells+pattern["flushing_cell"]
+    for y,x in Cells: 
+        if PMDState[y][x]!=0 and PMDState[y][x]!=ParentMixerHash: 
+            return False 
+    return True
+
+def placelib(Layeredlib,ParentMixerHash): 
+    ### pass 消す
+#    p= lib.pop()
+#    pa = AssignModuleTolib(p,ParentMixerHash)
+#    pattern = pa.pop()
+#    Movedlib = mv(lib,ParentMixerHash)
+    #Layeredlib = getLayeredlib(MovedPattern)
+    global MaxLayerNum
+    retLayeredlib = [[[] for i in range(len(ModulePrefix))] for j in range(MaxLayerNum)]
+
+    PlacementSkipped = False
     for layer in range(MaxLayerNum): 
         for prefix in ModulePrefix: 
             PrefixIdx = getModulePrefixIdx(prefix)
-            for idx,pattern in enumerate(LayeredLib[layer][PrefixIdx]):
-                if not pattern : 
-                    continue 
-                else : 
-                    if "ref_cell" not in pattern : 
-                        place(pattern["overlapping_cell"],pattern["hash"])
+            for pattern in Layeredlib[layer][PrefixIdx]:
+                ModuleHash = pattern["hash"]
+                if not PlacementSkipped and NoOverlapping(pattern):
+                    # 試薬液滴
+                    if getNode(ModuleHash).kind == "Reagent": 
+                        WritePMD(pattern["overlapping_cell"],ModuleHash*-1)
+                        ChangeState(ModuleHash,"OnlyProvDrop")
+                        WritePlacementInfo(pattern,ModuleHash)
                     else : 
-                        place(pattern["overlapping_cell"]+pattern["flushing_cell"],pattern["hash"])
-    for CHash in getNode(ParentMixerHash).ChildrenHash: 
-        if getNode(CHash).kind == "Reagent": 
-            ChangeState(CHash,"OnlyProvDrop")
-        else : 
-            ChangeState(CHash,"AtTopOfPlacedMixer")
-
+                        WritePMD(pattern["overlapping_cell"]+pattern["flushing_cell"],ModuleHash)
+                        ChangeState(ModuleHash,"AtTopOfPlacedMixer")
+                        WritePlacementInfo(pattern,ModuleHash)
+                else: 
+                    PlacementSkipped = True 
+                    ChangeState(ModuleHash,"PlacementSkipped")
+                    WritePlacementInfo(pattern,ModuleHash)
+                    retLayeredlib[layer][PrefixIdx].append(pattern)
+    if isEmptyLayeredlib(retLayeredlib):
+        return []
+    return retLayeredlib
     
 ### lib内のパターンは評価の際に対応するハッシュ値をパッキングする．
 ### 使用するlibが決定した際に，refCellなどをNodeInfo に書き込む
@@ -522,9 +579,8 @@ def xntm(root,PMDsize):
     ### placement of root mixer
     RefCell = [(Vsize-1)//2,(Hsize-1)//2]
     RootHash = PMDRootPlace(root,RefCell)
-    NodeInfoInit(root)
-    print(AtTopOfPlacedMixer)
-    
+    NodeInfoInit(root) 
+
     while PlacementSkipped or WaitingProvDrops or AtTopOfPlacedMixer or OnlyProvDrop:
         print(AtTopOfPlacedMixer)
         print(WaitingProvDrops)
@@ -543,10 +599,13 @@ def xntm(root,PMDsize):
                    shouldPlaceChildren = True 
             if shouldPlaceChildren: 
                 PlaceChildren(MixerHash)
+                print(AtTopOfPlacedMixer)
+                print(WaitingProvDrops)
+                print(OnlyProvDrop)
             elif isReadyForMixing : 
                 Mixing(MixerHash)
             else : 
-                continue
+                continue 
             print(PMDState)
         for MixerHash in WaitingProvDrops:
             isDropsProvidedByChildrenReady = True
@@ -556,4 +615,3 @@ def xntm(root,PMDsize):
             if isDropsProvidedByChildrenReady : 
                 ChangeState(MixerHash,"AtTopOfPlacedMixer")
 
-         
