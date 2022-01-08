@@ -13,4 +13,4 @@ tree.viewTree(Tree)
 PPVconsideredTree = tree.TransformTree(Tree)
 tree.viewTree(PPVconsideredTree)
 
-CPxntm.xntm(Tree,[10,10])
+xntm.xntm(Tree,[10,10])
