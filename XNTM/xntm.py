@@ -80,6 +80,9 @@ def Mixing(MixerHash):
 def Flush(): 
     pass 
 
+def RollBack(PMixerHash): 
+    pass
+
 def WritePMD(PlaceCells,v): 
     global PMDState
     for cell in PlaceCells: 
@@ -355,7 +358,7 @@ def getOptlib(PHash):
         Assignedlib = AssignModuleTolib(lib,PHash)
         for alib in Assignedlib: 
             if alib == {"Module":{"6":[],"4":[],"r":[]}} or alib == {}: 
-            alib = mv(alib,PHash)
+                alib = mv(alib,PHash)
             v =  Evallib(alib,PHash)
             if v < min_v: 
                 min_v = v 
