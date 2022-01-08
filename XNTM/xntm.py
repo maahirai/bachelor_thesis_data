@@ -354,8 +354,7 @@ def getOptlib(PHash):
     for lib in Lib: 
         Assignedlib = AssignModuleTolib(lib,PHash)
         for alib in Assignedlib: 
-            #if alib == {"Module":{"6":[],"4":[],"r":[]}} or alib == {}: 
-            #    continue 
+            if alib == {"Module":{"6":[],"4":[],"r":[]}} or alib == {}: 
             alib = mv(alib,PHash)
             v =  Evallib(alib,PHash)
             if v < min_v: 
@@ -509,7 +508,6 @@ def PlaceChildren(ParentMixerHash):
     global NodeInfo
     ChangeState(ParentMixerHash,"WaitingProvDrops")
     
-    ### getOptなど使う pass
     lib = getOptlib(ParentMixerHash)
     Layeredlib = getLayeredlib(lib)
     RestOflib = placelib(Layeredlib,ParentMixerHash)
@@ -531,12 +529,6 @@ def NoOverlapping(pattern):
     return True
 
 def placelib(Layeredlib,ParentMixerHash): 
-    ### pass 消す
-#    p= lib.pop()
-#    pa = AssignModuleTolib(p,ParentMixerHash)
-#    pattern = pa.pop()
-#    Movedlib = mv(lib,ParentMixerHash)
-    #Layeredlib = getLayeredlib(MovedPattern)
     global MaxLayerNum
     retLayeredlib = [[[] for i in range(len(ModulePrefix))] for j in range(MaxLayerNum)]
 
@@ -605,7 +597,7 @@ def xntm(root,PMDsize):
             elif isReadyForMixing : 
                 Mixing(MixerHash)
             else : 
-                continue 
+                continue
             print(PMDState)
         for MixerHash in WaitingProvDrops:
             isDropsProvidedByChildrenReady = True
