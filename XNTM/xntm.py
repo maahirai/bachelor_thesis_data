@@ -69,14 +69,22 @@ def getNode(hash):
 
 def Mixing(MixerHash):
     global PMDState
-    ChangeState(MixerHash,"OnlyProvDrop")   
-    for cell in getNode(MixerHash).CoveringCell: 
+    Mixer = getNode(MixerHash)
+    for cell in getMixerCoveringCell(Mixer.RefCell,Mixer.orientation): 
         y,x = cell
         PMDState[y][x] = -1*MixerHash
     for ProvCell in getNode(MixerHash).ProvCell: 
         CellForProtectFromFlushing.append(ProvCell)
     for FlushCell in getNode(MixerHash).FlushCell:
         CellForFlushing.append(FlushCell)
+
+    StateChanges = [ChangeState(MixerHash,"OnlyProvDrop")]   
+    for CHash in getNode(MixerHash).ChildrenHash: 
+        print("親:{}，子{}".format(MixerHash,CHash))
+        stateChange = ChangeState(CHash,"Done")
+        StateChanges.append(stateChange)
+    return StateChanges
+
 def Flush(): 
     pass 
 
@@ -87,7 +95,13 @@ def WritePMD(PlaceCells,v):
     global PMDState
     for cell in PlaceCells: 
         y,x = cell 
-        PMDState[y][x] = v
+        PMDState[y][x] = v 
+
+def viewPMD(): 
+    global PMDState
+    for row in PMDState : 
+        print(row,end="\n")
+        
 
 ########################################################################################
 def getRatioAndPrefixOfChildren(MHash): 
@@ -107,11 +121,12 @@ def getRatioAndPrefixOfChildren(MHash):
 def mv(lib,ParentMixerHash): 
     global NodeInfo
     ParentMixer = getNode(ParentMixerHash)
-    ParentRefcell = ParentMixer.RefCell
+    ParentRefcell = ParentMixer.RefCell 
     py,px = ParentRefcell
     diffY,diffX = py-2,px-2 
     ### Acording to the diffRefCell, modify the cell
     Movedlib = copy.deepcopy(lib)
+    #print(ParentRefcell,lib,Movedlib)
     for prefix in ModulePrefix:
         for pattern in Movedlib["Module"][prefix]:
             if "ref_cell" in pattern: 
@@ -170,12 +185,12 @@ def _getLib(ParentMixerHash):
 
     LibPath = Path("XNTM/sepdata/",FileName)
     readfile = open(LibPath,'r')
-    lib = json.load(readfile)
-    return lib
+    Lib = json.load(readfile)
+    return Lib
         
 def getLib(ParentMixerHash):
-    ret = _getLib(ParentMixerHash)
-    return ret
+    Lib = _getLib(ParentMixerHash)
+    return Lib
 
 from itertools import permutations
 def AssignModuleTolib(lib,PHash): 
@@ -301,7 +316,7 @@ def Evallib(lib,PHash):
     global PMDState,MaxLayerNum
     PMixer = getNode(PHash)
     
-    PMixerCoveringCell = PMixer.CoveringCell
+    PMixerCoveringCell = getMixerCoveringCell(PMixer.RefCell,PMixer.orientation)
     dy = [0,1,0,-1]
     dx = [-1,0,1,0]
     Layeredlib = getLayeredlib(lib)
@@ -309,32 +324,38 @@ def Evallib(lib,PHash):
     evalv = 0 
     ChildrenHashes = copy.deepcopy(PMixer.ChildrenHash)
     for layer in range(MaxLayerNum): 
-        for prefix in ModulePrefix: 
-            Patterns = Layeredlib[layer][getModulePrefixIdx(prefix)]
-            for pattern in Patterns:
-                ### 変形した希釈木に対応したミキサーの順番で配置しているかチェック
-                Chash = pattern["hash"]
-                if getNode(Chash).kind == "Mixer": 
-                    while(ChildrenHashes):
-                        CmpHash = ChildrenHashes.pop(0)
-                        if getNode(CmpHash).kind == "Mixer": 
-                            if CmpHash != Chash: 
-                                evalv+= 10000001.0
-                            else : 
-                                break
-                        else : 
-                            continue
-
-                evalv += 10.0**(layer+1)
-                ProvCell = pattern["overlapping_cell"]
-                PatternCoveringCells = pattern["overlapping_cell"]
+        MixerPatterns = Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")]
+        Hashes = []
+        for pattern in MixerPatterns:
+            Hashes.append(pattern["hash"])
+        ### 変形した希釈木に対応したミキサーの順番で配置しているかチェック
+        CmpMixerHashes = []
+        while(ChildrenHashes):
+            CmpHash = ChildrenHashes.pop(0)
+            if getNode(CmpHash).kind == "Mixer": 
+                if len(CmpMixerHashes)<len(Hashes):
+                    if CmpHash not in Hashes: 
+                        evalv += 100000000000001.0
+                    else : 
+                        CmpMixerHashes.append(CmpHash)
+                else : 
+                    break
+            else : 
+                continue
+    #　ミキサー同士が離れているほどGood 
+            pass
+        for idx,prefix in enumerate(ModulePrefix): 
+            for pattern in Layeredlib[layer][idx]: 
+                evalv += 100**(layer)
+                ProvCell = copy.deepcopy(pattern["overlapping_cell"])
+                PatternCoveringCells = copy.deepcopy(pattern["overlapping_cell"])
                 if "flushing_cell" in pattern: 
                     PatternCoveringCells += pattern["flushing_cell"]
                 for cell in PatternCoveringCells:
                     y,x = cell
                     CheckCellState = PMDState[y][x]
                     if CheckCellState != 0 and not OK(cell,CheckCellState,pattern["hash"]): 
-                        evalv+= 10000001.0
+                        evalv += 10000000000001.0
                 ### 各prov_cellの4方に同lib内patternのprov_cellが無いかチェックする
                 OkDirection = [False for i in range(4)]
                 for y,x in ProvCell: 
@@ -347,7 +368,7 @@ def Evallib(lib,PHash):
                     checkY,checkX = CheckCell
                     CheckCellState = PMDState[checkY][checkX]
                     if CheckCellState != 0 and CheckCellState != PHash:
-                        evalv += 10.0**layer
+                        evalv += layer+1
     return evalv
 
 def getOptlib(PHash): 
@@ -357,13 +378,12 @@ def getOptlib(PHash):
     for lib in Lib: 
         Assignedlib = AssignModuleTolib(lib,PHash)
         for alib in Assignedlib: 
-            if alib == {"Module":{"6":[],"4":[],"r":[]}} or alib == {}: 
-                alib = mv(alib,PHash)
+            alib = mv(alib,PHash)
             v =  Evallib(alib,PHash)
             if v < min_v: 
                 min_v = v 
                 Optlib = alib 
-    print(Optlib)
+    #print(Optlib)
     return Optlib
 
 ##################################### xntm #####################################
@@ -424,7 +444,9 @@ def PMDRootPlace(root,RefCell):
     ### Registering the root mixer
     NodeInfo[str(root.hash)] = RootMixer
     MixerNodeHash.append(root.hash)
-    ChangeState(root.hash,"AtTopOfPlacedMixer")
+    stateChange = ChangeState(root.hash,"AtTopOfPlacedMixer")
+    StateChanges = [stateChange]
+    ReflectStateChanges(StateChanges)
     return root.hash
 
 def WritePlacementInfo(pattern,Hash): 
@@ -446,36 +468,33 @@ def ChangeState(Hash,NextState):
     if Now == "NoTreatment": 
         if NextState == "AtTopOfPlacedMixer": 
             if ModuleKind == "Mixer": 
-                AtTopOfPlacedMixer.append(Hash)
                 NodeInfo[str(Hash)].state = NextState 
+                return [Hash,[Now,NextState]]
             else:
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
         elif NextState == "OnlyProvDrop": 
             if ModuleKind == "Reagent": 
-                OnlyProvDrop.append(Hash)
                 NodeInfo[str(Hash)].state = NextState 
+                return [Hash,[Now,NextState]]
             else :
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
         elif NextState == "PlacementSkipped": 
-            if ModuleKind == "Mixer": 
-                ### スキップ
-                print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
-                pass 
+            ### チェックは呼び出し側に任す
+            NodeInfo[str(Hash)].state = NextState 
+            return [Hash,[Now,NextState]]
         else : 
             print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
     elif Now == "AtTopOfPlacedMixer": 
         if NextState == "WaitingProvDrops": 
             if ModuleKind == "Mixer" and Hash in AtTopOfPlacedMixer: 
-                AtTopOfPlacedMixer.remove(Hash)
-                WaitingProvDrops.append(Hash)
                 NodeInfo[str(Hash)].state = NextState 
+                return [Hash,[Now,NextState]]
             else :
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
         elif NextState == "OnlyProvDrop": 
             if ModuleKind == "Mixer" and Hash in AtTopOfPlacedMixer: 
-                AtTopOfPlacedMixer.remove(Hash)
-                OnlyProvDrop.append(Hash)
                 NodeInfo[str(Hash)].state = NextState 
+                return [Hash,[Now,NextState]]
             else :
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
         else : 
@@ -483,47 +502,89 @@ def ChangeState(Hash,NextState):
     elif Now == "WaitingProvDrops": 
         if NextState == "AtTopOfPlacedMixer":
             if ModuleKind == "Mixer" and (Hash in WaitingProvDrops): 
-                WaitingProvDrops.remove(Hash) 
-                AtTopOfPlacedMixer.append(Hash)
                 NodeInfo[str(Hash)].state = NextState 
+                return [Hash,[Now,NextState]]
             else :
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
         else : 
             print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
     elif Now == "OnlyProvDrop": 
         if NextState == "Done":
-            if Hash in WaitingProvDrops : 
-                OnlyProvDrop.remove(Hash) 
-                Done.append(Hash)
+            if Hash in OnlyProvDrop: 
                 NodeInfo[str(Hash)].state = NextState 
+                return [Hash,[Now,NextState]]
             else : 
-                print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
+                print("{}の異常な遷移{}:{}→{}".format(Hash,NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
     elif Now == "PlacementSkipped": 
         if NextState == "AtTopOfPlacedMixer": 
-            ### ライブラリから抜き出す
-            pass 
+            ### チェックは呼び出し側に任す
+            NodeInfo[str(Hash)].state = NextState 
+            return [Hash,[Now,NextState]]
+        elif NextState == "NoTreatment": 
+            ### チェックは呼び出し側に任す
+            NodeInfo[str(Hash)].state = NextState 
+            return [Hash,[Now,NextState]]
         else : 
             print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
     else : 
         print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
 
+def ReflectStateChanges(StateChanges): 
+    global AtTopOfPlacedMixer,WaitingProvDrops,OnlyProvDrop,PlacementSkipped,Done 
+    #"print(StateChanges)
+    for Hash,stateChange in StateChanges: 
+        #print(stateInfo)
+        Now,NextState = stateChange
+        if Now == "NoTreatment": 
+            if NextState == "AtTopOfPlacedMixer": 
+                AtTopOfPlacedMixer.append(Hash)
+            elif NextState == "OnlyProvDrop": 
+                OnlyProvDrop.append(Hash)
+            elif NextState == "PlacementSkipped": 
+                PlacementSkipped.append(Hash)
+        elif Now == "WaitingProvDrops": 
+            if NextState == "AtTopOfPlacedMixer":
+                WaitingProvDrops.remove(Hash) 
+                AtTopOfPlacedMixer.append(Hash)
+        elif Now == "AtTopOfPlacedMixer": 
+            if NextState == "WaitingProvDrops": 
+                AtTopOfPlacedMixer.remove(Hash)
+                WaitingProvDrops.append(Hash)
+            elif NextState == "OnlyProvDrop": 
+                AtTopOfPlacedMixer.remove(Hash)
+                OnlyProvDrop.append(Hash)
+        elif Now == "PlacementSkipped": 
+            if NextState == "AtTopOfPlacedMixer": 
+                PlacementSkipped.remove(Hash)
+                AtTopOfPlacedMixer.append(Hash)
+            if NextState =="NoTreatment": 
+                PlacementSkipped.remove(Hash)
+        elif Now == "OnlyProvDrop": 
+            if NextState == "Done":
+                OnlyProvDrop.remove(Hash) 
+                Done.append(Hash)
+
 def PlaceChildren(ParentMixerHash): 
-    global NodeInfo
-    ChangeState(ParentMixerHash,"WaitingProvDrops")
+    global NodeInfo,PMDState
+    StateChanges = [ChangeState(ParentMixerHash,"WaitingProvDrops")]
     
     lib = getOptlib(ParentMixerHash)
     Layeredlib = getLayeredlib(lib)
-    RestOflib = placelib(Layeredlib,ParentMixerHash)
+    MoreStateChanges,RestOflib = placelib(Layeredlib,ParentMixerHash)
     ### 配置しきったなら
-    if not RestOflib: 
-        return 
-    else : 
+    if RestOflib: 
         PlacementSkipped.append(RestOflib)
+    #print("にゃ")
+    #print(stateChange,StateChanges,RestOflib,sep='\n')
+    for Change in MoreStateChanges: 
+        StateChanges.append(Change)
+    #print(StateChanges,sep='\n')
+    return StateChanges
 
 def NoOverlapping(pattern): 
     global PMDState 
     ParentMixerHash = getNode(pattern["hash"]).ParentHash
-    Cells = pattern["overlapping_cell"]
+    Cells = copy.deepcopy(pattern["overlapping_cell"])
     if "flushing_cell" in pattern: 
         Cells = Cells+pattern["flushing_cell"]
     for y,x in Cells: 
@@ -534,7 +595,8 @@ def NoOverlapping(pattern):
 def placelib(Layeredlib,ParentMixerHash): 
     global MaxLayerNum
     retLayeredlib = [[[] for i in range(len(ModulePrefix))] for j in range(MaxLayerNum)]
-
+    
+    StateChanges = []
     PlacementSkipped = False
     for layer in range(MaxLayerNum): 
         for prefix in ModulePrefix: 
@@ -545,27 +607,32 @@ def placelib(Layeredlib,ParentMixerHash):
                     # 試薬液滴
                     if getNode(ModuleHash).kind == "Reagent": 
                         WritePMD(pattern["overlapping_cell"],ModuleHash*-1)
-                        ChangeState(ModuleHash,"OnlyProvDrop")
                         WritePlacementInfo(pattern,ModuleHash)
+                        stateChange = ChangeState(ModuleHash,"OnlyProvDrop")
+                        StateChanges.append(stateChange) 
                     else : 
                         WritePMD(pattern["overlapping_cell"]+pattern["flushing_cell"],ModuleHash)
-                        ChangeState(ModuleHash,"AtTopOfPlacedMixer")
+                        stateChange = ChangeState(ModuleHash,"AtTopOfPlacedMixer")
                         WritePlacementInfo(pattern,ModuleHash)
+                        StateChanges.append(stateChange) 
                 else: 
+                    phash = getNode(ModuleHash).ParentHash
+                    #print(phash,getNode(phash).CoveringCell,getNode(phash).RefCell,sep="\n")
                     PlacementSkipped = True 
-                    ChangeState(ModuleHash,"PlacementSkipped")
                     WritePlacementInfo(pattern,ModuleHash)
                     retLayeredlib[layer][PrefixIdx].append(pattern)
+                    stateChange = ChangeState(ModuleHash,"PlacementSkipped")
+                    StateChanges.append(stateChange) 
     if isEmptyLayeredlib(retLayeredlib):
-        return []
-    return retLayeredlib
+        return StateChanges,[]
+    return StateChanges,retLayeredlib
     
 ### lib内のパターンは評価の際に対応するハッシュ値をパッキングする．
 ### 使用するlibが決定した際に，refCellなどをNodeInfo に書き込む
 ### ParentMixer = str(mixer.size) + mixer.orientation
 Vsize,Hsize=0,0
 def xntm(root,PMDsize):
-    global PMDState,NodeInfo,PlacementSkipped,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Vsize,Hsize
+    global PMDState,NodeInfo,PlacementSkipped,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Vsize,Hsize,Done
     Vsize,Hsize = PMDsize
     PMDState = [[0 for j in range(Hsize)] for i in range(Vsize)]
     ### -1はどっちでもいい，0はFlushするセル，1はProvDropなので守る必要あり．
@@ -575,11 +642,16 @@ def xntm(root,PMDsize):
     RefCell = [(Vsize-1)//2,(Hsize-1)//2]
     RootHash = PMDRootPlace(root,RefCell)
     NodeInfoInit(root) 
+    q = [] 
+    q.append(RootHash)
+    while(q): 
+        e = q.pop(0) 
+        print(e,getNode(e).name,getNode(e).kind)
+        for c in getNode(e).ChildrenHash: 
+            q.append(c)
 
     while PlacementSkipped or WaitingProvDrops or AtTopOfPlacedMixer or OnlyProvDrop:
-        print(AtTopOfPlacedMixer)
-        print(WaitingProvDrops)
-        print(OnlyProvDrop)
+        StateChanges = []
         if getNode(RootHash).state == "OnlyProvDrop": 
             print("混合手順生成完了")
             break
@@ -589,24 +661,40 @@ def xntm(root,PMDsize):
             shouldPlaceChildren = False
             for ChildHash in mixer.ChildrenHash:
                 if getNode(ChildHash).state != "OnlyProvDrop": 
+                   print("{}|{}".format(ChildHash,getNode(ChildHash).state)) 
                    isReadyForMixing = False 
                 if getNode(ChildHash).state == "NoTreatment": 
                    shouldPlaceChildren = True 
             if shouldPlaceChildren: 
-                PlaceChildren(MixerHash)
-                print(AtTopOfPlacedMixer)
-                print(WaitingProvDrops)
-                print(OnlyProvDrop)
+                MoreStateChanges = PlaceChildren(MixerHash)
+                for Change in MoreStateChanges: 
+                    StateChanges.append(Change)
+            
+                ### 配置前のときイテレーターに，新たに配置されたミキサーの子の配置を
+                ### そのまま任すと，AtTopOfの中で要素が削除されているから，順番飛ばし
+                ### が発生する．
             elif isReadyForMixing : 
-                Mixing(MixerHash)
+                MoreStateChanges = Mixing(MixerHash)
+                for Change in MoreStateChanges: 
+                    print("はにゃ:{}".format(Change))
+                    StateChanges.append(Change)
             else : 
-                continue
-            print(PMDState)
+                continue 
+
         for MixerHash in WaitingProvDrops:
             isDropsProvidedByChildrenReady = True
             for ChildHash in getNode(MixerHash).ChildrenHash: 
                 if getNode(ChildHash).state != "OnlyProvDrop": 
                     isDropsProvidedByChildrenReadyReady = False 
             if isDropsProvidedByChildrenReady : 
-                ChangeState(MixerHash,"AtTopOfPlacedMixer")
+                stateChange = ChangeState(MixerHash,"AtTopOfPlacedMixer")
+                StateChanges.append(stateChange)
 
+        print(StateChanges)
+        ReflectStateChanges(StateChanges)
+        print("AtTopOfPlacedMixer",AtTopOfPlacedMixer)
+        print("WaitingProvDrops",WaitingProvDrops)
+        print("OnlyProvDrop",OnlyProvDrop)
+        print("PlacementSkipped",PlacementSkipped)
+        print("Done",Done)
+        viewPMD()
