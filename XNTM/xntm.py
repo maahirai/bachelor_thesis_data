@@ -181,7 +181,9 @@ def WritePMD(PlaceCells,v):
 def viewPMD(): 
     global PMDState
     for row in PMDState : 
-        print(row,end="\n")
+        for CellState in row: 
+            print("{:6d}".format(CellState),end=" ")
+        print("")
         
 
 ########################################################################################
@@ -626,6 +628,8 @@ def ChangeState(Hash,NextState):
         elif NextState == "NoTreatment": 
             NodeInfo[str(Hash)].state = NextState 
             return [Hash,[Now,NextState]]
+        elif NextState ==  "PlacementSkipped": 
+            return [Hash,[Now,NextState]]
         else : 
             print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
     else : 
@@ -748,23 +752,20 @@ def placelib(Layeredlib,ParentMixerHash):
 ### ParentMixer = str(mixer.size) + mixer.orientation
 Vsize,Hsize=0,0
 def xntm(root,PMDsize):
+    FlushCount = 0
     global PMDState,NodeInfo,PlacementSkipped,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib
     Vsize,Hsize = PMDsize
     PMDState = [[0 for j in range(Hsize)] for i in range(Vsize)]
-    ### -1はどっちでもいい，0はFlushするセル，1はProvDropなので守る必要あり．
-    ForFlushRooting = [[-1 for j in range(Hsize)] for i in range(Vsize)]
     
     ### placement of root mixer
     RefCell = [(Vsize-1)//2,(Hsize-1)//2]
     RootHash = PMDRootPlace(root,RefCell)
     NodeInfoInit(root) 
-    viewAllModule(RootHash)
-
     while PlacementSkipped or WaitingProvDrops or AtTopOfPlacedMixer or OnlyProvDrop:
         StateChanges = []
         if getNode(RootHash).state == "OnlyProvDrop": 
             print("混合手順生成完了")
-            break 
+            return FlushCount
 
         CanDoNothing = True
         for MixerHash in AtTopOfPlacedMixer: 
@@ -810,9 +811,14 @@ def xntm(root,PMDsize):
             Succeed = Flush()
             if not Succeed: 
                 return 
+            else : 
+                FlushCount += 1
             ### 配置をスキップされていたミキサーの配置 
             PlacedSkipped = 0
+            Rest = []
+            Remove = []
             for LibInfo in reversed(PlacementSkippedLib): 
+                Remove.append(LibInfo)
                 ParentMixerHash,Lib = LibInfo
                 PMixer = getNode(ParentMixerHash)
                 TimeToPlace = True
@@ -835,8 +841,14 @@ def xntm(root,PMDsize):
                         for change in MoreStateChanges: 
                             StateChanges.append(change)
                         PlacedSkipped = ParentMixerHash
+                        if RestOfLib: 
+                            Rest.append(RestOfLib)
+            for garbage in Remove: 
+                PlacementSkippedLib.remove(garbage)
+            for rest in Rest: 
+                PlacementSkippedLib.append(rest)
 
-        viewAllModule(RootHash)
+        #viewAllModule(RootHash)
         print(StateChanges)
         ReflectStateChanges(StateChanges)
         print("AtTopOfPlacedMixer",AtTopOfPlacedMixer)
