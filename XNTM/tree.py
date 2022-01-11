@@ -185,12 +185,10 @@ def _viewPydot(pydot):
     '''
     plt = Image(pydot.create_png(prog='dot'))
     display(plt)
-    return plt
     
 ### pngデータを返す
 def viewTree(root):
-    Image_Data = _viewPydot(_createTree(root))
-    return Image_Data
+    _viewPydot(_createTree(root))
     
 
 import os
