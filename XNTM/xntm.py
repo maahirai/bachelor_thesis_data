@@ -27,14 +27,24 @@ class Module:
 #######################################################################################
 ### general use functions
 ModulePrefix = ["6","4","r"]
+
+def globalInit(): 
+    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib
+    PMDState = [[0 for j in range(Hsize)] for i in range(Vsize)]
+    NodeInfo = {}
+    PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,Done = [],[],[],[],[]
+    CellForFlushing,CellForProtectFromFlushing = [],[]
+    PlacementSkippedLib = []
+
 def viewAllModule(RootHash): 
     q = [] 
     q.append(RootHash)
     while(q): 
         e = q.pop(0) 
-        print(e,getNode(e).name,getNode(e).kind)
+        print([e,getNode(e).name,getNode(e).kind],end="")
         for c in getNode(e).ChildrenHash: 
             q.append(c)
+    print("")
 
 def getModulePrefixIdx(module): 
     for i in range(len(ModulePrefix)): 
@@ -91,7 +101,6 @@ def Mixing(MixerHash):
     ### Mixingによって発生する状態遷移
     StateChanges = [ChangeState(MixerHash,"OnlyProvDrop")]   
     for CHash in getNode(MixerHash).ChildrenHash: 
-        print("親:{}，子{}".format(MixerHash,CHash))
         stateChange = ChangeState(CHash,"Done")
         StateChanges.append(stateChange)
     return StateChanges
@@ -168,8 +177,38 @@ def Flush():
     return False
 
 def RollBack(PMixerHash): 
-    print("未実装",file=sys.stderr)
-    pass
+    global PMDState,CellForProtectFromFlushing,CellForFlushing,Vsize,Hsize
+    PMixer = getNode(PMixerHash)
+    StateChanges = []
+    q = []
+    des = []
+    for CHash in getNode(PMixerHash).ChildrenHash: 
+        q.append(CHash)
+    while(q): 
+        ModuleHash = q.pop(0)
+        des.append(ModuleHash)
+        if getNode(ModuleHash).state != "NoTreatment": 
+            stateChange = ChangeState(ModuleHash,"NoTreatment")
+            StateChanges.append(stateChange)
+
+        Module = getNode(ModuleHash)
+        for CHash in Module.ChildrenHash: 
+            q.append(CHash)
+
+    RollBackCell = []
+    for y in range(Vsize): 
+        for x in range(Hsize): 
+            cell = [y,x]
+            if abs(PMDState[y][x]) in des: 
+                RollBackCell.append(cell)
+                if cell in CellForFlushing : 
+                    CellForFlushing.remove(cell)
+                elif cell in CellForProtectFromFlushing: 
+                    CellForProtectFromFlushing.remove(cell)   
+    WritePMD(RollBackCell,0)
+    stateChange = ChangeState(PMixerHash,"AtTopOfPlacedMixer")
+    StateChanges.append(stateChange)
+    return StateChanges
 
 def WritePMD(PlaceCells,v): 
     global PMDState,CellForProtectFromFlushing 
@@ -594,6 +633,12 @@ def ChangeState(Hash,NextState):
                 return [Hash,[Now,NextState]]
             else :
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
+        elif NextState == "NoTreatment":
+            if Hash in AtTopOfPlacedMixer:
+                NodeInfo[str(Hash)].state = NextState 
+                return [Hash,[Now,NextState]]
+            else :
+                print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
         else : 
             print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
     elif Now == "WaitingProvDrops": 
@@ -603,10 +648,22 @@ def ChangeState(Hash,NextState):
                 return [Hash,[Now,NextState]]
             else :
                 print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
+        elif NextState == "NoTreatment":
+            if Hash in WaitingProvDrops:
+                NodeInfo[str(Hash)].state = NextState 
+                return [Hash,[Now,NextState]]
+            else :
+                print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
         else : 
             print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
     elif Now == "OnlyProvDrop": 
         if NextState == "Done":
+            if Hash in OnlyProvDrop: 
+                NodeInfo[str(Hash)].state = NextState 
+                return [Hash,[Now,NextState]]
+            else : 
+                print("{}の異常な遷移{}:{}→{}".format(Hash,NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
+        elif NextState == "NoTreatment":
             if Hash in OnlyProvDrop: 
                 NodeInfo[str(Hash)].state = NextState 
                 return [Hash,[Now,NextState]]
@@ -632,13 +689,19 @@ def ChangeState(Hash,NextState):
             return [Hash,[Now,NextState]]
         else : 
             print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
+    elif Now == "Done": 
+        if NextState == "NoTreatment":
+            if ModuleKind == "Mixer": 
+                NodeInfo[str(Hash)].state = NextState 
+                return [Hash,[Now,NextState]]
+            else : 
+                print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
     else : 
         print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
 
 def ReflectStateChanges(StateChanges): 
     global AtTopOfPlacedMixer,WaitingProvDrops,OnlyProvDrop,PlacementSkipped,Done 
     for Hash,stateChange in StateChanges: 
-        #print(stateInfo)
         Now,NextState = stateChange
         if Now == "NoTreatment": 
             if NextState == "AtTopOfPlacedMixer": 
@@ -651,6 +714,8 @@ def ReflectStateChanges(StateChanges):
             if NextState == "AtTopOfPlacedMixer":
                 WaitingProvDrops.remove(Hash) 
                 AtTopOfPlacedMixer.append(Hash)
+            elif NextState == "NoTreatment": 
+                WaitingProvDrops.remove(Hash) 
         elif Now == "AtTopOfPlacedMixer": 
             if NextState == "WaitingProvDrops": 
                 AtTopOfPlacedMixer.remove(Hash)
@@ -658,6 +723,8 @@ def ReflectStateChanges(StateChanges):
             elif NextState == "OnlyProvDrop": 
                 AtTopOfPlacedMixer.remove(Hash)
                 OnlyProvDrop.append(Hash)
+            elif NextState == "NoTreatment": 
+                AtTopOfPlacedMixer.remove(Hash)
         elif Now == "PlacementSkipped": 
             if NextState == "AtTopOfPlacedMixer": 
                 PlacementSkipped.remove(Hash)
@@ -671,6 +738,11 @@ def ReflectStateChanges(StateChanges):
             if NextState == "Done":
                 OnlyProvDrop.remove(Hash) 
                 Done.append(Hash)
+            elif NextState == "NoTreatment": 
+                OnlyProvDrop.remove(Hash) 
+        elif Now == "Done":
+            if NextState =="NoTreatment": 
+                Done.remove(Hash)
 
 def PlaceChildren(ParentMixerHash): 
     global NodeInfo,PMDState,PlacementSkippedLib
@@ -682,11 +754,8 @@ def PlaceChildren(ParentMixerHash):
     ### 配置しきれなかったなら,
     if RestOflib: 
         PlacementSkippedLib.append([ParentMixerHash,RestOflib])
-    #print("にゃ")
-    #print(stateChange,StateChanges,RestOflib,sep='\n')
     for Change in MoreStateChanges: 
         StateChanges.append(Change)
-    #print(StateChanges,sep='\n')
     return StateChanges
 
 def NoOverlapping(pattern): 
@@ -737,7 +806,6 @@ def placelib(Layeredlib,ParentMixerHash):
                         StateChanges.append(stateChange) 
                 else: 
                     phash = getNode(ModuleHash).ParentHash
-                    #print(phash,getNode(phash).CoveringCell,getNode(phash).RefCell,sep="\n")
                     skip = True 
                     WritePlacementInfo(pattern,ModuleHash)
                     retLayeredlib[layer][PrefixIdx].append(pattern)
@@ -753,9 +821,9 @@ def placelib(Layeredlib,ParentMixerHash):
 Vsize,Hsize=0,0
 def xntm(root,PMDsize):
     FlushCount = 0
-    global PMDState,NodeInfo,PlacementSkipped,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib
-    Vsize,Hsize = PMDsize
-    PMDState = [[0 for j in range(Hsize)] for i in range(Vsize)]
+    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib
+    Vsize,Hsize = PMDsize 
+    globalInit()
     
     ### placement of root mixer
     RefCell = [(Vsize-1)//2,(Hsize-1)//2]
@@ -774,7 +842,6 @@ def xntm(root,PMDsize):
             shouldPlaceChildren = True
             for ChildHash in mixer.ChildrenHash:
                 if getNode(ChildHash).state != "OnlyProvDrop": 
-                   #print("{}|{}".format(ChildHash,getNode(ChildHash).state)) 
                    isReadyForMixing = False 
                 if getNode(ChildHash).state != "NoTreatment": 
                    shouldPlaceChildren = False
@@ -791,7 +858,6 @@ def xntm(root,PMDsize):
                 CanDoNothing = False
                 MoreStateChanges = Mixing(MixerHash)
                 for Change in MoreStateChanges: 
-                    #print("はにゃ:{}".format(Change))
                     StateChanges.append(Change)
             else : 
                 continue 
@@ -831,10 +897,7 @@ def xntm(root,PMDsize):
                 else : 
                     MoreStateChanges,RestOfLib =  placelib(Lib,ParentMixerHash)
                     if Lib == RestOfLib and not PlacedSkipped : 
-                        print("RollBackは未実装",file=sys.stderr)
-                        RollBack(ParentMixerHash)
-                        return 
-                        MoreStateChanges = PlaceChildren(ParentMixerHash)
+                        MoreStateChanges = RollBack(ParentMixerHash)
                         for Change in MoreStateChanges: 
                             StateChanges.append(Change)
                     else : 
@@ -848,7 +911,7 @@ def xntm(root,PMDsize):
             for rest in Rest: 
                 PlacementSkippedLib.append(rest)
 
-        #viewAllModule(RootHash)
+        viewAllModule(RootHash)
         print(StateChanges)
         ReflectStateChanges(StateChanges)
         print("AtTopOfPlacedMixer",AtTopOfPlacedMixer)
