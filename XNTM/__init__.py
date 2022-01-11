@@ -1,3 +1,2 @@
-from .tree import *
+from .xntm import *
 from .utility import *
-from .ntm_helper import * 
