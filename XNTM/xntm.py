@@ -5,9 +5,7 @@ import copy
 
 class Module: 
     def __init__(self,node,ParentHash): 
-        self.name = node.name
-        self.hash = node.hash
-        self.state = "NoTreatment"
+        self.name = node.name self.hash = node.hash self.state = "NoTreatment"
         self.size = node.size
         self.ParentHash = ParentHash
         self.ChildrenHash = []
@@ -29,9 +27,10 @@ class Module:
 ModulePrefix = ["6","4","r"]
 
 def globalInit(): 
-    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib
+    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack
     PMDState = [[0 for j in range(Hsize)] for i in range(Vsize)]
     NodeInfo = {}
+    CntRollBack = 0
     PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,Done = [],[],[],[],[]
     CellForFlushing,CellForProtectFromFlushing = [],[]
     PlacementSkippedLib = []
@@ -847,10 +846,11 @@ def placelib(Layeredlib,ParentMixerHash):
 ### lib内のパターンは評価の際に対応するハッシュ値をパッキングする．
 ### 使用するlibが決定した際に，refCellなどをNodeInfo に書き込む
 ### ParentMixer = str(mixer.size) + mixer.orientation
+CntRollBack = 0
 Vsize,Hsize=0,0
 def xntm(root,PMDsize,ProcessOut=0):
     FlushCount = 0
-    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib
+    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack
     Vsize,Hsize = PMDsize 
     globalInit()
     
@@ -933,6 +933,7 @@ def xntm(root,PMDsize,ProcessOut=0):
                         MoreStateChanges = RollBack(ParentMixerHash)
                         for Change in MoreStateChanges: 
                             StateChanges.append(Change)
+                        CntRollBack += 1
                     else : 
                         for change in MoreStateChanges: 
                             StateChanges.append(change)
@@ -945,7 +946,7 @@ def xntm(root,PMDsize,ProcessOut=0):
                 PlacementSkippedLib.append(rest)
 
         code = ReflectStateChanges(StateChanges)
-        if code == -1:
+        if code == -1 or CntRollBack > 1000:
             if ProcessOut:
                 print("扱えない希釈木です．",file=sys.stderr)
             return -1
