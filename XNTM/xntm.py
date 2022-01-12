@@ -121,7 +121,7 @@ def CanReachCell(cell):
         return []
 
     q = [cell]
-    IsVisited = [[True for i in range(Hsize)]for j in range(Vsize)]
+    IsVisited = [[False for i in range(Hsize)]for j in range(Vsize)]
     while(q): 
         cell = q.pop(0)
         y,x = cell
@@ -131,8 +131,8 @@ def CanReachCell(cell):
            ny,nx = y+dy[way],x+dx[way] 
            if InsidePMD(ny,nx): 
                ncell = [ny,nx]
-               if ncell not in CellForProtectFromFlushing and IsVisited[ny][nx]: 
-                    IsVisited[ny][nx] = False   
+               if ncell not in CellForProtectFromFlushing and not IsVisited[ny][nx]: 
+                    IsVisited[ny][nx] = True
                     q.append(ncell) 
     return Cells 
 
@@ -170,7 +170,7 @@ def Flush():
                 ### フラッシュ可能
                 for i in range(Vsize): 
                     for j in range(Hsize): 
-                        if [i,j] not in CellForProtectFromFlushing: 
+                        if [i,j] not in CellForProtectFromFlushing and PMDState[i][j] < 0: 
                             PMDState[i][j] = 0
                 CellForFlushing = []
                 return True
@@ -208,6 +208,7 @@ def RollBack(PMixerHash):
     WritePMD(RollBackCell,0)
     stateChange = ChangeState(PMixerHash,"AtTopOfPlacedMixer")
     StateChanges.append(stateChange)
+    WritePMD(getNode(PMixerHash).CoveringCell,PMixerHash)
     return StateChanges
 
 def WritePMD(PlaceCells,v): 
@@ -691,17 +692,18 @@ def ChangeState(Hash,NextState):
             print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
     elif Now == "Done": 
         if NextState == "NoTreatment":
-            if ModuleKind == "Mixer": 
-                NodeInfo[str(Hash)].state = NextState 
-                return [Hash,[Now,NextState]]
-            else : 
-                print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
+            NodeInfo[str(Hash)].state = NextState 
+            return [Hash,[Now,NextState]]
+        else : 
+            print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
     else : 
         print("異常な遷移{}:{}→{}".format(NodeInfo[str(Hash)].kind,Now,NextState),file=sys.stderr)
 
 def ReflectStateChanges(StateChanges): 
     global AtTopOfPlacedMixer,WaitingProvDrops,OnlyProvDrop,PlacementSkipped,Done 
     for Hash,stateChange in StateChanges: 
+        if Hash == -1 and not stateChange: 
+            return -1
         Now,NextState = stateChange
         if Now == "NoTreatment": 
             if NextState == "AtTopOfPlacedMixer": 
@@ -743,12 +745,17 @@ def ReflectStateChanges(StateChanges):
         elif Now == "Done":
             if NextState =="NoTreatment": 
                 Done.remove(Hash)
+    return 0
+
 
 def PlaceChildren(ParentMixerHash): 
     global NodeInfo,PMDState,PlacementSkippedLib
     StateChanges = [ChangeState(ParentMixerHash,"WaitingProvDrops")]
     
     lib = getOptlib(ParentMixerHash)
+    if not lib : 
+        StateChanges.append([-1,[]])
+        return StateChanges
     Layeredlib = getLayeredlib(lib)
     MoreStateChanges,RestOflib = placelib(Layeredlib,ParentMixerHash)
     ### 配置しきれなかったなら,
@@ -876,10 +883,11 @@ def xntm(root,PMDsize):
             ### Flushing
             Succeed = Flush()
             if not Succeed: 
-                return 
+                print("十分な大きさのPMDを用意してください.",file=sys.stderr)
+                return -1
             else : 
                 FlushCount += 1
-            ### 配置をスキップされていたミキサーの配置 
+            ### 配置をスキップされていたミキサーや試薬の配置 
             PlacedSkipped = 0
             Rest = []
             Remove = []
@@ -893,6 +901,7 @@ def xntm(root,PMDsize):
                     if CMixer.state != "OnlyProvDrop" and CMixer.state != "PlacementSkipped":
                         TimeToPlace = False
                 if not TimeToPlace: 
+                    Rest.append(LibInfo)
                     continue 
                 else : 
                     MoreStateChanges,RestOfLib =  placelib(Lib,ParentMixerHash)
@@ -905,7 +914,7 @@ def xntm(root,PMDsize):
                             StateChanges.append(change)
                         PlacedSkipped = ParentMixerHash
                         if RestOfLib: 
-                            Rest.append(RestOfLib)
+                            Rest.append([ParentMixerHash,RestOfLib])
             for garbage in Remove: 
                 PlacementSkippedLib.remove(garbage)
             for rest in Rest: 
@@ -913,7 +922,10 @@ def xntm(root,PMDsize):
 
         viewAllModule(RootHash)
         print(StateChanges)
-        ReflectStateChanges(StateChanges)
+        code = ReflectStateChanges(StateChanges)
+        if code == -1:
+            print("扱えない希釈木です．",file=sys.stderr)
+            return -1
         print("AtTopOfPlacedMixer",AtTopOfPlacedMixer)
         print("WaitingProvDrops",WaitingProvDrops)
         print("OnlyProvDrop",OnlyProvDrop)
