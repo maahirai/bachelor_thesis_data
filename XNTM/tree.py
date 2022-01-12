@@ -76,9 +76,10 @@ import itertools
 lNumChildMixer = []
 
 def TransformTree(root):
-    global lNumChildMixer,MIX_COUNTER
+    global lNumChildMixer,MIX_COUNTER 
     lNumChildMixer = list(itertools.repeat(-1,MIX_COUNTER))
-    transformed_tree = _TransformTree(root)
+    cpTree = deepcopy(root)
+    transformed_tree = _TransformTree(cpTree)
     return transformed_tree
 
 def _TransformTree(root):

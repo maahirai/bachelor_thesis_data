@@ -94,7 +94,8 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind):
     for i in range(1,ReagentKind+1): 
         ReagentName.append("R"+str(i))
     AllModules = {}
-
+    
+    max_height = 0
     root = genMixerNode(0)  
     q = []
     MergeQuery = []
@@ -102,7 +103,8 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind):
     while(q): 
         e,height = q.pop(0)
         AllModules[str(e.hash)] = e 
-        
+        if height > max_height: 
+            max_height = height
         if e.isMixer: 
             ProvRatio = genProvidedRatio(e.size)
             IsMixr = [True,False]
@@ -138,4 +140,4 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind):
     ProcessMergeQuery(MergeQuery)
 
     ret = ConstructList(root.hash)
-    return ret 
+    return [max_height,ret] 

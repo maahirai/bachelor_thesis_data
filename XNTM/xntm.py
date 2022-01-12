@@ -848,7 +848,7 @@ def placelib(Layeredlib,ParentMixerHash):
 ### 使用するlibが決定した際に，refCellなどをNodeInfo に書き込む
 ### ParentMixer = str(mixer.size) + mixer.orientation
 Vsize,Hsize=0,0
-def xntm(root,PMDsize,ProcessOut):
+def xntm(root,PMDsize,ProcessOut=0):
     FlushCount = 0
     global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib
     Vsize,Hsize = PMDsize 
