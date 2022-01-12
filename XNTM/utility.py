@@ -20,12 +20,14 @@ class TreeNode:
         self.ProvSize = ProvSize
 
 MixerSize = [6,4]
-def genMixerNode(ProvSize): 
+def genMixerNode(ProvSize,Forced = 0): 
     global MixerSize 
     Msize = -1
     while(ProvSize>Msize):
         ret = random.choice(MixerSize) 
-        Msize = ret
+        Msize = ret 
+    if Forced: 
+        Msize = Forced
     return TreeNode(Msize,ProvSize,True)
 
 def genReagentNode(Provsize,name): 
@@ -80,6 +82,11 @@ def ConstructList(hash):
     else : 
         return module.name 
 
+def CornerCase(modules,ProvRatio): 
+    if modules == [True,True] and ProvRatio == [3,3]:
+        return 6
+    return 0
+        
 ReagentName = []
 AllModules = {}
 def genInputTree(MaxHeight,MixerRatio,ReagentKind): 
@@ -103,10 +110,17 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind):
             ChildModules = random.choices(IsMixr,weights=ratio,k=len(ProvRatio))
             ProvReagent = {}
             for idx,isMixer in enumerate(ChildModules): 
-                if isMixer and height < MaxHeight: 
-                    mixer = genMixerNode(ProvRatio[idx])
-                    e.children.append(mixer.hash)
-                    q.append([mixer,height+1])
+                if isMixer and height < MaxHeight : 
+                    Corner = CornerCase(ChildModules,ProvRatio)
+                    if not Corner : 
+                        mixer = genMixerNode(ProvRatio[idx])
+                        e.children.append(mixer.hash)
+                        q.append([mixer,height+1])
+                    else : 
+                        mixer = genMixerNode(ProvRatio[idx],Forced=Corner)
+                        e.children.append(mixer.hash)
+                        q.append([mixer,height+1])
+
                 else: 
                     name = random.choice(ReagentName)
                     if name in ProvReagent: 
