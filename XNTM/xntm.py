@@ -456,11 +456,34 @@ def Evallib(lib,PHash):
             if ChildHash not in CmpHashes: 
                 ### 失格
                 return 100000000000000001.0
+    ### 以上のパートをくぐり抜けたなら: 配置順がok
 
-    ### pass: 配置順がok
     evalv = 0 
-    #　ミキサー同士が離れているかも評価
-    pass
+    #　ミキサー同士が離れて配置されているか評価
+    for layer in range(MaxLayerNum):
+        MixerPatterns = Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")] 
+        Len = len(MixerPatterns)
+        for first in range(Len): 
+            for second in range(Len): 
+                if first == second or first > second: 
+                    continue
+                FirstPattern = MixerPatterns[first]
+                SecondPattern = MixerPatterns[second]
+                FHash = FirstPattern["hash"]
+                SHash = SecondPattern["hash"]
+                FEvalCell = copy.deepcopy(FirstPattern["overlapping_cell"]+FirstPattern["flushing_cell"])
+                SEvalCell = copy.deepcopy(SecondPattern["overlapping_cell"]+SecondPattern["flushing_cell"])  
+                MinDist = 100
+                for FCell in FEvalCell: 
+                    for SCell in SEvalCell: 
+                        fy,fx = FCell
+                        sy,sx = SCell
+                        tdist = abs((fy-sy)+(fx-sx))
+                        if MinDist > tdist : 
+                            MinDist = tdist 
+                ### 各ミキサーノードを根とする部分木が子孫ノードを持つほど，ミキサー間の距離が重要になってくる
+                evalv += 10**((getNode(FHash).SubTreeDepth+getNode(SHash).SubTreeDepth)-(2**MinDist))
+
     PMixerCoveringCell = getMixerCoveringCell(PMixer.RefCell,PMixer.orientation)
     dy = [0,1,0,-1]
     dx = [-1,0,1,0]
@@ -470,7 +493,7 @@ def Evallib(lib,PHash):
         for idx,prefix in enumerate(ModulePrefix): 
             for pattern in Layeredlib[layer][idx]: 
                 ### libのlayerが大きいほどflushingの回数増える
-                evalv += 100**(layer)
+                evalv += 1000*(layer)
 
                 PatternCoveringCells = []
                 Module = getNode(pattern["hash"])
@@ -500,7 +523,8 @@ def Evallib(lib,PHash):
                     checkY,checkX = CheckCell
                     CheckCellState = PMDState[checkY][checkX]
                     if CheckCellState != 0 and CheckCellState != PHash:
-                        evalv += layer+1
+                        ### オーバーラップが起こるかも
+                        evalv += 100/(layer+1)
     return evalv
 
 def getOptlib(PHash): 
