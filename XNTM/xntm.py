@@ -249,7 +249,6 @@ def mv(lib,ParentMixerHash):
     diffY,diffX = py-2,px-2 
     ### Acording to the diffRefCell, modify the cell
     Movedlib = copy.deepcopy(lib)
-    #print(ParentRefcell,lib,Movedlib)
     for prefix in ModulePrefix:
         for pattern in Movedlib["Module"][prefix]:
             if "ref_cell" in pattern: 
@@ -539,7 +538,6 @@ def getOptlib(PHash):
             if v < min_v: 
                 min_v = v 
                 Optlib = alib 
-    #print(Optlib)
     return Optlib
 
 ##################################### xntm #####################################
@@ -850,7 +848,7 @@ def placelib(Layeredlib,ParentMixerHash):
 ### 使用するlibが決定した際に，refCellなどをNodeInfo に書き込む
 ### ParentMixer = str(mixer.size) + mixer.orientation
 Vsize,Hsize=0,0
-def xntm(root,PMDsize):
+def xntm(root,PMDsize,ProcessOut):
     FlushCount = 0
     global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib
     Vsize,Hsize = PMDsize 
@@ -863,7 +861,8 @@ def xntm(root,PMDsize):
     while PlacementSkipped or WaitingProvDrops or AtTopOfPlacedMixer or OnlyProvDrop:
         StateChanges = []
         if getNode(RootHash).state == "OnlyProvDrop": 
-            print("混合手順生成完了")
+            if ProcessOut :
+                print("混合手順生成完了")
             return FlushCount
 
         CanDoNothing = True
@@ -907,7 +906,8 @@ def xntm(root,PMDsize):
             ### Flushing
             Succeed = Flush()
             if not Succeed: 
-                print("十分な大きさのPMDを用意してください.",file=sys.stderr)
+                if ProcessOut:
+                    print("十分な大きさのPMDを用意してください.",file=sys.stderr)
                 return -1
             else : 
                 FlushCount += 1
@@ -944,15 +944,17 @@ def xntm(root,PMDsize):
             for rest in Rest: 
                 PlacementSkippedLib.append(rest)
 
-        viewAllModule(RootHash)
-        print(StateChanges)
         code = ReflectStateChanges(StateChanges)
         if code == -1:
-            print("扱えない希釈木です．",file=sys.stderr)
+            if ProcessOut:
+                print("扱えない希釈木です．",file=sys.stderr)
             return -1
-        print("AtTopOfPlacedMixer",AtTopOfPlacedMixer)
-        print("WaitingProvDrops",WaitingProvDrops)
-        print("OnlyProvDrop",OnlyProvDrop)
-        print("PlacementSkipped",PlacementSkipped)
-        print("Done",Done)
-        viewPMD()
+        if ProcessOut:
+            viewAllModule(RootHash)
+            print(StateChanges)
+            print("AtTopOfPlacedMixer",AtTopOfPlacedMixer)
+            print("WaitingProvDrops",WaitingProvDrops)
+            print("OnlyProvDrop",OnlyProvDrop)
+            print("PlacementSkipped",PlacementSkipped)
+            print("Done",Done)
+            viewPMD()
