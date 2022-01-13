@@ -1,9 +1,60 @@
 \chapter{{2×3ミキサーを用いた液滴移動の\bout{ない}混合手順の生成}}
 \section{アルゴリズムの概要}
-マッピングアルゴリズムの大きな流れを説明する.
-\begin{itemize}
-    \item {アルゴリズム全体の擬似コード}
-\end{itemize}
+\label{overview}
+\ref{overview}~節では，本論文の提案手法である2$\times$3ミキサーを用いた液滴移動の無いPMD上での混合手順の生成アルゴリズムの処理の流れを擬似コードを交えて説明する.
+
+Algorithm~\ref{alg:prop}に本論文の提案手法のプログラム全体の擬似コードを示した．
+\begin{algorithm}[tbp]
+ \caption{プログラム全体の処理の流れ}\label{alg:prop}
+ \begin{algorithmic}[1]
+    \Require $\mathit{Tree}$：2$\times$2ミキサーノードと2$\times$3ミキサーノードを含む入力希釈木
+     \State $TransformedTree \gets$ transform($Tree$) \Comment{希釈木の変形}
+     \Require $\mathit{PMD}$：$\mathit{Tree}$を配置するのに十分な大きさを持つPMD  
+     \State $\mathit{OnPMD}$ = List() \Comment{PMD上に配置されているモジュールの管理をするリスト}
+     \State $\mathit{OnPMD}$.append($TransformedTree.RootMixer$)
+    \State \While{$TransformTree.RootMixer.state \neq Mixed $ }
+        $\mathit{mixer} \gets  \mathit{OnPMD}$.pop()
+        \State $\mathit{AllChildrenPlaced}=\mathit{True}$
+        \State $\mathit{AllChildrenMixerMixed}=\mathit{True}$
+        \ForAll{$\mathit{child} \gets \mathit{mixer.Children}$} 
+            \If {$\mathit{child}\:\mathit{not}\,\mathit{in}\:\mathit{OnPMD}$}
+                $\mathit{AllChildrenPlaced \gets False}$
+                \State PlaceOnPMD($\mathit{child,PMD}$)
+                \State $\mathit{OnPMD}$.append($\mathit{child}$) 
+            \EndIf 
+            \If {$\mathit{child.kind}==\mathit{Mixer} \: \mathit{and}\: \mathit{child.state}\neq\mathit{Mixed}$}
+                \State $\mathit{AllChildrenMixerMixed}=\mathit{False}$
+            \EndIf 
+        \EndFor 
+        \If{$\mathit{AllChildrenPlaced}\,\mathit{and}\, \mathit{AllChildrenMixerMixed}$}
+            Mix($\mathit{mixer,PMD}$)
+            $\mathit{mixer.state} = \mathit{Mixed}$ \\
+            $\mathit{OnPMD}$.append($\mathit{mixer}$)
+        \EndIf
+    \EndWhile 
+  %\State ifはこんな感じ
+  %\State \Return \True
+  %\ElsIf{ぼけぼけ}
+  %\State \Return \False
+  %\EndIf
+
+  %\For{$i=1$ to N}
+  %\State forはもちろん
+  %\EndFor
+
+  %\ForAll{外部出力リストのゲート\textit{po}}
+  %\State forallや
+  %\EndFor
+
+  %\Repeat
+  %\State リピートも使えます
+  %\State $C$内のそれぞれのゲートの出力論理を計算
+  %\State OptimizeCircuitUsingCSPF($C$)
+  %\Until{$C$の構成に変更なし}
+
+  %\State \Return $C$
+ \end{algorithmic}
+\end{algorithm}
 \section{入力希釈木への変形アルゴリズム}
 希釈木の変形操作の手順や目的などを例や擬似コードを用いながら説明する．
 \section{ライブラリを用いたモジュールの配置{アルゴリズム}}
