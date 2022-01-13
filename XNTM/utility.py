@@ -82,7 +82,7 @@ def genGrid(Vsize,Hsize):
     return Grid,img
 
 from pathlib  import Path
-def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer): 
+def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops): 
     global Width,Sep,draw
     grid,img = genGrid(Vsize,Hsize)
     draw = ImageDraw.Draw(img)
@@ -91,66 +91,94 @@ def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer
         for j in range(Hsize): 
             if PMDState[i][j] == 0: 
                 continue 
-            elif PMDState[i][j] > 0 and PMDState[i][j] in AtTopOfPlacedMixer: 
+            elif PMDState[i][j] <0:
+                name = "" 
+                color = "" 
                 hash = abs(PMDState[i][j])
-                Node = NodeInfo[str(hash)]
-                for CHash in Node.ChildrenHash: 
+                if NodeInfo[str(hash)].kind == "Mixer": 
+                    idx = int(NodeInfo[str(hash)].name[1:])
+                    name = "d"+str(idx)
+                    color = Colorlist[idx]
+                else : 
+                    name = NodeInfo[str(hash)].name 
                     color = "Gray"
-                    state = ""
-                    child = NodeInfo[str(CHash)]
-                    if  child.kind == "Mixer": 
-                        Cmixer_idx = int(child.name[1:])
-                        color = Colorlist[Cmixer_idx]
-                        stete = "d"+str(Cmixer_idx) 
-                    else : 
-                        state = child.name
-                    cells = child.ProvCell 
-                    for y,x in cells :
-                        if child.state == "OnlyProvDrop": 
-                            grid[y][x].change(color,state) 
-                        else : 
-                            print(child.state)
+                #draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 5,fill = color,outline = 'Black',Width=3) 
+                fromy,fromx = (2*i+1)*sep,(2*j+1)*sep
+                toy,tox = fromy+Width,fromx+Width
+                #draw.rectangle([(fromx,fromy),(tox,toy)],fill = color,outline = 'Black',width=3)
+                grid[i][j].change(color,name)
 
-                MixerIdx = int(Node.name[1:])
-                color = Colorlist[MixerIdx]
+            elif PMDState[i][j] > 0 :
+                hash = PMDState[i][j]
+                Node = NodeInfo[str(hash)]
                 cells = getCoveringCell(Node.RefCell,Node.orientation)
-                sy,sx  = Node.RefCell
-                ey,ex = 0,0
-                for cell in cells: 
-                    y,x = cell 
-                    if y >= ey and x >= ex: 
-                        ey = y 
-                        ex = x
-                fromy,fromx = grid[sy][sx].sy+Width,grid[sy][sx].sy+Width 
-                toy,tox = grid[ey][ex].ey-Width,grid[ey][ex].ex-Width
-                draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 15,outline = color,width=10)
-                fontsize = 15 
-                font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
-                draw.text(((fromx+tox)//2-9,(fromy+toy)//2-9),Node.name,font=font,fill="Black")
-            else :
-                hash = abs(PMDState[i][j])
-                cell = [i,j] 
-                drop.append([hash,cell]) 
+                skip = False
+                for y,x in cells: 
+                    if PMDState[y][x] != hash : 
+                        skip = True 
+                if skip : 
+                    continue 
+                else :
+                    MixerIdx = int(Node.name[1:])
+                    color = Colorlist[MixerIdx]
+                    cells = getCoveringCell(Node.RefCell,Node.orientation)
+                    sy,sx  = Node.RefCell 
+                    ey,ex = cells[len(cells)-1]
 
-    for hash,cell in drop:
-        y,x = cell
-        #fromy,fromx = Grid[y][x].sy+Width+3,Grid[y][x].sy+Width+3
-        name = "" 
-        color = ""
-        if NodeInfo[str(hash)].kind == "Mixer": 
-            idx = int(NodeInfo[str(hash)].name[1:])
-            name = "d"+str(idx)
-            color = Colorlist[idx]
-        else : 
-            name = NodeInfo[str(hash)].name 
-            color = "Gray"
-        #draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 5,fill = color,outline = 'Black',Width=3) 
-        fromy,fromx = (2*y+1)*sep,(2*x+1)*sep
-        toy,tox = fromy+Width,fromx+Width
-        #draw.rectangle([(fromx,fromy),(tox,toy)],fill = color,outline = 'Black',width=3)
-        grid[y][x].change(color,name)
+                    fromy,fromx =sy*2*sep+Width ,sx*2*sep+Width
+                    toy,tox = grid[ey][ex].ey-Width,grid[ey][ex].ex-Width
+                    draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 15,outline = color,width=10)
+                    fontsize = 15 
+                    font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+                    draw.text(((fromx+tox)//2-9,(fromy+toy)//2-9),Node.name,font=font,fill="Black")
+            else: 
+                continue 
+            for hash in WaitingProvDrops: 
+                Node = NodeInfo[str(hash)]
+                Children = Node.ChildrenHash 
+                skip = False
+                for y,x in getCoveringCell(Node.RefCell,Node.orientation): 
+                    if PMDState[y][x]<0 and abs(PMDState[y][x]) not in Children: 
+                        skip = True
+                if skip : 
+                    continue
+                else: 
+                    MixerIdx = int(Node.name[1:])
+                    color = Colorlist[MixerIdx]
+                    cells = getCoveringCell(Node.RefCell,Node.orientation)
+                    sy,sx  = Node.RefCell 
+                    ey,ex = cells[len(cells)-1]
+
+                    fromy,fromx =sy*2*sep+Width ,sx*2*sep+Width
+                    toy,tox = grid[ey][ex].ey-Width,grid[ey][ex].ex-Width
+                    draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 15,outline = color,width=10)
+                    fontsize = 15 
+                    font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+                    draw.text(((fromx+tox)//2-9,(fromy+toy)//2-9),Node.name,font=font,fill="Black")
+
+            for hash in AtTopOfPlacedMixer: 
+                Node = NodeInfo[str(hash)]
+                Children = Node.ChildrenHash 
+                skip = False
+                for y,x in getCoveringCell(Node.RefCell,Node.orientation): 
+                    if PMDState[y][x]<0 and abs(PMDState[y][x]) not in Children: 
+                        skip = True
+                if skip : 
+                    continue
+                else: 
+                    MixerIdx = int(Node.name[1:])
+                    color = Colorlist[MixerIdx]
+                    cells = getCoveringCell(Node.RefCell,Node.orientation)
+                    sy,sx  = Node.RefCell 
+                    ey,ex = cells[len(cells)-1]
+
+                    fromy,fromx =sy*2*sep+Width ,sx*2*sep+Width
+                    toy,tox = grid[ey][ex].ey-Width,grid[ey][ex].ex-Width
+                    draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 15,outline = color,width=10)
+                    fontsize = 15 
+                    font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+                    draw.text(((fromx+tox)//2-9,(fromy+toy)//2-9),Node.name,font=font,fill="Black")
     create_directory("image")
     path = Path("image/",filename+".png")
-    img.show()
     img.save(path)
 

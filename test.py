@@ -1,8 +1,16 @@
 from XNTM import  *
 from XNTM import tree
+from XNTM import xntm
 from importlib import reload 
+from pathlib import Path
 import sys 
 import csv
+import os 
+
+def create_directory(dir_name):
+    if not os.path.exists(dir_name):
+        print ('Creating directory: ', dir_name)
+        os.makedirs(dir_name) 
 
 gomi,MaxDepth,datanum,filename = "","","",""
 if len(sys.argv ) == 4:
@@ -14,7 +22,8 @@ import datetime
 if not filename : 
     filename = MaxDepth+"_"+str(datetime.datetime.now())
 if not datanum : 
-    datanum = "150"
+    ### 生成する入力希釈木数
+    datanum = "1"
 
 import pathlib 
 path = Path('result/',filename+'.csv')
@@ -24,11 +33,14 @@ with open(path,'w',newline="") as f:
     for i in range(int(datanum)):
         height,TREE = genInputTree(int(MaxDepth),0.7,4)
         Tree = tree.InputToTree(TREE)
-        #tree.viewTree(Tree)
-        PPVconsideredTree = tree.TransformTree(Tree)
-        #tree.viewTree(PPVconsideredTree)
-        WithoutTransform = xntm(Tree,[30,30]) 
-        Transformed = xntm(PPVconsideredTree,[30,30])
+
+        create_directory("image")
+        tree.saveTree(Tree,"image/Tree"+str(i+1)+".png")
+        TransformedTree = tree.TransformTree(Tree)
+        tree.saveTree(Tree,"image/TransformedTree"+str(i+1)+".png")
+        Color = tree.ColorList
+        WithoutTransform = xntm(Tree,[10,10],ColorList=Color,ImageName=str(i+1)) 
+        Transformed = xntm(TransformedTree,[10,10],ColorList=Color,ImageName="transformed_"+str(i+1))
         result = [height,WithoutTransform,Transformed]
         writer.writerow(result)
 

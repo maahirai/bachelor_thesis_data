@@ -5,7 +5,9 @@ import copy
 
 class Module: 
     def __init__(self,node,ParentHash): 
-        self.name = node.name self.hash = node.hash self.state = "NoTreatment"
+        self.name = node.name 
+        self.hash = node.hash 
+        self.state = "NoTreatment"
         self.size = node.size
         self.ParentHash = ParentHash
         self.ChildrenHash = []
@@ -842,14 +844,16 @@ def placelib(Layeredlib,ParentMixerHash):
     if isEmptyLayeredlib(retLayeredlib):
         return StateChanges,[]
     return StateChanges,retLayeredlib
-    
+   
+from .utility import PMDImage
 ### lib内のパターンは評価の際に対応するハッシュ値をパッキングする．
 ### 使用するlibが決定した際に，refCellなどをNodeInfo に書き込む
 ### ParentMixer = str(mixer.size) + mixer.orientation
 CntRollBack = 0
 Vsize,Hsize=0,0
-def xntm(root,PMDsize,ProcessOut=0):
+def xntm(root,PMDsize,ProcessOut=0,ImageName=0,ColorList=None):
     FlushCount = 0
+    ImageCount = 0
     global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack
     Vsize,Hsize = PMDsize 
     globalInit()
@@ -858,8 +862,14 @@ def xntm(root,PMDsize,ProcessOut=0):
     RefCell = [(Vsize-1)//2,(Hsize-1)//2]
     RootHash = PMDRootPlace(root,RefCell)
     NodeInfoInit(root) 
+
     while PlacementSkipped or WaitingProvDrops or AtTopOfPlacedMixer or OnlyProvDrop:
         StateChanges = []
+        if ImageName and ColorList:
+            ImageCount += 1
+            imageName = ImageName+"_"+str(ImageCount)
+            PMDImage(imageName,ColorList,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops)
+
         if getNode(RootHash).state == "OnlyProvDrop": 
             if ProcessOut :
                 print("混合手順生成完了")
@@ -950,6 +960,7 @@ def xntm(root,PMDsize,ProcessOut=0):
             if ProcessOut:
                 print("扱えない希釈木です．",file=sys.stderr)
             return -1
+        
         if ProcessOut:
             viewAllModule(RootHash)
             print(StateChanges)
