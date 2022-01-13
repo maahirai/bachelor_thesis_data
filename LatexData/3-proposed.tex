@@ -13,7 +13,7 @@ Algorithm~\ref{alg:prop}に本論文の提案手法のプログラム全体の�
      \State $\mathit{OnPMD}$ = List() \Comment{PMD上に配置されているモジュールの管理をするリスト}
      \State $\mathit{OnPMD}$.append($TransformedTree.RootMixer$)
     \State \While{$TransformTree.RootMixer.state \neq Mixed $ }
-        $\mathit{mixer} \gets  \mathit{OnPMD}$.pop()
+        $\mathit{mixer} \gets  \mathit{OnPMD}$.pop(0)
         \State $\mathit{AllChildrenPlaced}=\mathit{True}$
         \State $\mathit{AllChildrenMixerMixed}=\mathit{True}$
         \ForAll{$\mathit{child} \gets \mathit{mixer.Children}$} 
