@@ -868,7 +868,7 @@ def xntm(root,PMDsize,ProcessOut=0,ImageName=0,ColorList=None):
         if ImageName and ColorList:
             ImageCount += 1
             imageName = ImageName+"_"+str(ImageCount)
-            PMDImage(imageName,ColorList,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops)
+            #PMDImage(imageName,ColorList,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops)
 
         if getNode(RootHash).state == "OnlyProvDrop": 
             if ProcessOut :
@@ -956,7 +956,7 @@ def xntm(root,PMDsize,ProcessOut=0,ImageName=0,ColorList=None):
                 PlacementSkippedLib.append(rest)
 
         code = ReflectStateChanges(StateChanges)
-        if code == -1 or CntRollBack > 1000:
+        if code == -1 or CntRollBack > 1000 or FlushCount>10000:
             if ProcessOut:
                 print("扱えない希釈木です．",file=sys.stderr)
             return -1
