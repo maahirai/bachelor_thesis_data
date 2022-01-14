@@ -85,21 +85,21 @@ def TransformTree(root):
 def _TransformTree(root):
     Children = []
     for item in root.children:
-        ppv = 0
+        ecv = 0
         if IsMixerNode(item):
             # Sum of Number of children-mixer in the subtree
-            ppv += NumChildMixer(item)
+            ecv += NumChildMixer(item)
             # providing volume 
-            ppv += item.provide_vol
+            ecv += item.provide_vol
             # we must place tht item firstly if (item.provide_vol == (ParentMixer.size - 1))
             if item.provide_vol == root.size - 1:
                 # so large value
-                INF = 10000000
-                ppv += INF
-        Children.append((item,ppv))
-    SortedByPPV = sorted( Children, key = lambda x: x[1], reverse = True)
+                INF = 100000000
+                ecv += INF
+        Children.append((item,ecv))
+    SortedByECV = sorted( Children, key = lambda x: x[1], reverse = True)
     res = []
-    for item in SortedByPPV:
+    for item in SortedByECV:
         Subtree = _TransformTree(item[0])
         res.append(Subtree)
     root.children = res
@@ -203,9 +203,6 @@ def saveTree(root, save):
         file_name = save[-1]
     create_directory(dir_name)
         
-    # plt.savefig(os.path.join(dir_name, file_name), #dpi = 128,
-    #             bbox_inches = 'tight', pad_inches = 0)
-
     _createTree(root).write_png(os.path.join(dir_name, file_name))
 
 ######################################################################################    
