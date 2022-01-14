@@ -411,12 +411,27 @@ def isEmptyLayeredlib(lib):
     return True
 
 def OK(CheckCell,CheckCellState,ModuleHash):
-    global NodeInfo 
+    global NodeInfo,PMDState
     checkHash = abs(CheckCellState)
+    Module = getNode(ModuleHash)
+
+    NGNode = getAllAncestorsHash(ModuleHash)
+    NGtoo = []
+    for Hash in NGNode:
+        if Hash == Module.ParentHash: 
+            continue 
+        for ng in getNode(Hash).ChildrenHash:  
+            NGtoo.append(ng)
+    CoveringCell = getMixerCoveringCell(Module.RefCell,Module.orientationc) if Module.kind == "Mixer" else Module.ProvCell 
+    for cell in CoveringCell: 
+        y,x = cell
+        if PMDState[y][x]<0 and (-*PMDState[y][x] in NGNode or -*PMDState[y][x] in NGtoo): 
+            return False 
+
     if CheckCell in NodeInfo[str(checkHash)].ProvCell: 
         Ancestor = getAllAncestorsHash(ModuleHash)
         if NodeInfo[str(checkHash)].ParentHash in Ancestor:
-            return False
+            return False 
     else : 
         return True
 
@@ -878,10 +893,11 @@ from .utility import PMDImage
 ### ParentMixer = str(mixer.size) + mixer.orientation
 CntRollBack = 0
 Vsize,Hsize=0,0
+RollBackHash=-1
 def xntm(root,PMDsize,ProcessOut=0,ImageName=0,ColorList=None):
     FlushCount = 0
     ImageCount = 0
-    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack
+    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,RollBackHash
     Vsize,Hsize = PMDsize 
     globalInit()
     
@@ -967,10 +983,14 @@ def xntm(root,PMDsize,ProcessOut=0,ImageName=0,ColorList=None):
                 else : 
                     MoreStateChanges,RestOfLib =  placelib(Lib,ParentMixerHash)
                     if Lib == RestOfLib and not PlacedSkipped : 
-                        MoreStateChanges = RollBack(ParentMixerHash)
-                        for Change in MoreStateChanges: 
-                            StateChanges.append(Change)
-                        CntRollBack += 1
+                        if RollBackHash != ParentMixerHash: 
+                            MoreStateChanges = RollBack(ParentMixerHash)
+                            for Change in MoreStateChanges: 
+                                StateChanges.append(Change)
+                            RollBackHash = ParentMixerHash
+                            CntRollBack += 1
+                        else : 
+                            return -1
                     else : 
                         for change in MoreStateChanges: 
                             StateChanges.append(change)
