@@ -250,27 +250,50 @@ def mv(lib,ParentMixerHash):
     diffY,diffX = py-2,px-2 
     ### Acording to the diffRefCell, modify the cell
     Movedlib = copy.deepcopy(lib)
+    is_ok = True
     for prefix in ModulePrefix:
         for pattern in Movedlib["Module"][prefix]:
             if "ref_cell" in pattern: 
                 y,x = pattern["ref_cell"]
-                MovedRefCell = [y+diffY,x+diffX]
-                pattern["ref_cell"] = MovedRefCell
+                mvy,mvx = y+diffY,x+diffX 
+                
+                if InsidePMD(mvy,mvx):
+                    MovedRefCell = [mvy,mvx]
+                    pattern["ref_cell"] = MovedRefCell 
+                    orientation = ""
+                    if "orientation" in pattern: 
+                        orientation = pattern["orientation"]
+                    for y,x in getMixerCoveringCell(pattern["ref_cell"],orientation): 
+                        if not InsidePMD(y,x): 
+                            is_ok = False
+                else : 
+                    is_ok = False
             if "flushing_cell" in pattern: 
                 MovedCells = []
                 for cell in pattern["flushing_cell"]:
                     y,x = cell
-                    MovedCell = [y+diffY,x+diffX]
-                    MovedCells.append(MovedCell)
+                    mvy,mvx = y+diffY,x+diffX 
+                    if InsidePMD(mvy,mvx):
+                        MovedCell = [mvy,mvx]
+                        MovedCells.append(MovedCell)
+                    else : 
+                        is_ok = False
                 pattern["flushing_cell"] = MovedCells 
             if "overlapping_cell" in pattern: 
                 MovedCells = []
                 for cell in pattern["overlapping_cell"]: 
                     y,x = cell
-                    MovedCell = [y+diffY,x+diffX]
-                    MovedCells.append(MovedCell)
+                    mvy,mvx = y+diffY,x+diffX 
+                    if InsidePMD(mvy,mvx):
+                        MovedCell = [mvy,mvx]
+                        MovedCells.append(MovedCell)
+                    else : 
+                        is_ok = False
                 pattern["overlapping_cell"] = MovedCells 
-    return Movedlib 
+    if is_ok :
+        return Movedlib 
+    else : 
+        return {}
 
 ### functions relating library
 def GenLibKey(ratio,Modules): 
@@ -461,11 +484,11 @@ def Evallib(lib,PHash):
     evalv = 0 
     #　ミキサー同士が離れて配置されているか評価
     for layer in range(MaxLayerNum):
-        MixerPatterns = Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")] 
+        MixerPatterns = copy.deepcopy(Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")] )
         Len = len(MixerPatterns)
         for first in range(Len): 
             for second in range(Len): 
-                if first == second or first > second: 
+                if  first >= second: 
                     continue
                 FirstPattern = MixerPatterns[first]
                 SecondPattern = MixerPatterns[second]
@@ -482,18 +505,20 @@ def Evallib(lib,PHash):
                         if MinDist > tdist : 
                             MinDist = tdist 
                 ### 各ミキサーノードを根とする部分木が子孫ノードを持つほど，ミキサー間の距離が重要になってくる
-                evalv += 10**((getNode(FHash).SubTreeDepth+getNode(SHash).SubTreeDepth)-(2**MinDist))
+                expo = 3**((getNode(FHash).SubTreeDepth+getNode(SHash).SubTreeDepth+(layer+1))-(3*MinDist))
+                if expo < 0: 
+                    expo = 0
+                evalv += 100*(expo)
 
     PMixerCoveringCell = getMixerCoveringCell(PMixer.RefCell,PMixer.orientation)
     dy = [0,1,0,-1]
     dx = [-1,0,1,0]
     # lib内の各パターンを評価する
     for layer in range(MaxLayerNum): 
-        
         for idx,prefix in enumerate(ModulePrefix): 
             for pattern in Layeredlib[layer][idx]: 
                 ### libのlayerが大きいほどflushingの回数増える
-                evalv += 1000*(layer)
+                evalv += 1000.0*(layer+1)
 
                 PatternCoveringCells = []
                 Module = getNode(pattern["hash"])
@@ -524,7 +549,7 @@ def Evallib(lib,PHash):
                     CheckCellState = PMDState[checkY][checkX]
                     if CheckCellState != 0 and CheckCellState != PHash:
                         ### オーバーラップが起こるかも
-                        evalv += 100/(layer+1)
+                        evalv += 1000.0/(layer+1)
     return evalv
 
 def getOptlib(PHash): 
@@ -535,6 +560,8 @@ def getOptlib(PHash):
         Assignedlib = AssignModuleTolib(lib,PHash)
         for alib in Assignedlib: 
             alib = mv(alib,PHash)
+            if alib == {}: 
+                continue
             v =  Evallib(alib,PHash)
             if v < min_v: 
                 min_v = v 
@@ -868,7 +895,7 @@ def xntm(root,PMDsize,ProcessOut=0,ImageName=0,ColorList=None):
         if ImageName and ColorList:
             ImageCount += 1
             imageName = ImageName+"_"+str(ImageCount)
-            #PMDImage(imageName,ColorList,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops)
+            PMDImage(imageName,ColorList,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops)
 
         if getNode(RootHash).state == "OnlyProvDrop": 
             if ProcessOut :
@@ -958,7 +985,7 @@ def xntm(root,PMDsize,ProcessOut=0,ImageName=0,ColorList=None):
         code = ReflectStateChanges(StateChanges)
         if code == -1 or CntRollBack > 1000 or FlushCount>10000:
             if ProcessOut:
-                print("扱えない希釈木です．",file=sys.stderr)
+                print("扱えない希釈木です．十分な大きさのPMDを用意しているか確認してください．",file=sys.stderr)
             return -1
         
         if ProcessOut:

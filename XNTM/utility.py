@@ -81,6 +81,7 @@ def genGrid(Vsize,Hsize):
         Grid.append(row) 
     return Grid,img
 
+import random
 from pathlib  import Path
 def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops): 
     global Width,Sep,draw
@@ -151,10 +152,11 @@ def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer
 
                     fromy,fromx =sy*2*sep+Width ,sx*2*sep+Width
                     toy,tox = grid[ey][ex].ey-Width,grid[ey][ex].ex-Width
-                    draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 15,outline = color,width=10)
+                    diff = 5
+                    draw.rounded_rectangle([(fromx-diff,fromy-diff),(tox+diff,toy+diff)],radius = 15,outline = color,width=10)
                     fontsize = 15 
                     font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
-                    draw.text(((fromx+tox)//2-9,(fromy+toy)//2-9),Node.name,font=font,fill="Black")
+                    draw.text(((fromx+tox)//2-9,(fromy+toy)//2),Node.name,font=font,fill="Black")
 
             for hash in AtTopOfPlacedMixer: 
                 Node = NodeInfo[str(hash)]
