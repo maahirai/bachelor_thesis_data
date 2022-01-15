@@ -5,9 +5,9 @@
 
 
 まず，本論文の提案手法の入出力について説明する．
-本論文の提案手法の入力は，図~\ref{fig:inputoutput}（a）の様な，2$\times$2ミキサーノードと2$\times$3ミキサーノード，試薬液滴ノードの3種類のノードをで構成されている希釈木である．
+本論文の提案手法の入力は，図~\ref{fig:inputoutput}（a）の，2$\times$2ミキサーノードと2$\times$3ミキサーノード，試薬液滴ノードの3種類のノードをで構成されている希釈木である．
 また，本論文の提案手法の出力は，図~\ref{fig:inputoutput}の（b）から（e）の，入力希釈木に対応したPMD上でのミキサーの混合手順である．
-図~\ref{fig:inputoutput}の（b）から（e）において，同じ図内のミキサーは混合されるタイミング（タイムステップ）が同じミキサー同士である．
+図~\ref{fig:inputoutput}の（b）から（e）において，同じ図内のミキサーは，混合されるタイミング（タイムステップ）が同じミキサー同士である．
 
 図~\ref{fig:inputoutput}の（b）から（e）の混合手順において，図~\ref{fig:inputoutput}（a）の希釈木内で子ノードに対応する試薬液滴やミキサーは，親ミキサーの配置されるセルに提供液滴を残す．
 これによって，本手法においても，NTMと同様にPMD上での試薬液滴の移動のない混合手順の生成が実現されている．
@@ -17,15 +17,24 @@
  \caption{提案手法の入出力}\label{fig:inputoutput}
 \end{figure}
 
-次に，本論文の提案手法のアルゴリズムを擬似コードを交えて説明する．
-Algorithm~\ref{alg:prop}に本論文の提案手法のアルゴリズム全体の擬似コードを示した．
-本論文の提案手法において行われる処理は大きく分けると，擬似コード内で
-\ref{xntm_pseudo}行目以降に記述された2$\times$3ミキサーを用いた液滴移動のない混合手順の生成と，
-\ref{transform_pseudo}行目に記述されている入力された希釈木への変形操作の2つである．
+Algorithm~\ref{alg:all}に本論文の提案手法のアルゴリズム全体の擬似コードを示した．
+本論文の提案手法において行われる処理は，大きく分けると2つである．
 
-
+1つ目の処理は，擬似コード内で
+\ref{transform_pseudo}行目に記述されている入力の希釈木への変形操作である．
+希釈木の変形操作は，入力の希釈木を入力とし，変形された入力の希釈木を出力する．
+変形操作を希釈木に対して行った場合の例を図~\ref{fig:Transform}に示した．
+図~\ref{fig:Transform}（a）は変形前の希釈木，図~\ref{fig:Transform}（b）は変形後の希釈木である．
 希釈木の変形操作では，図~\ref{fig:Transform}（a）のような2$\times$2ミキサーノード，2$\times$3ミキサーノード，
-試薬液滴ノードの3種類のノードを含む希釈木内の各ミキサーノードが，その子ミキサーノードと子試薬液滴ノード（子ノード）との間に張られているエッジの順番を，その子ノードを根とする部分木の予測混雑度をキー値にして降順にソートする．
+試薬液滴ノードの3種類のノードを含む希釈木内の，各ミキサーノードと，その子ミキサーノードもしくはその子試薬液滴ノード（子ノード）との間に張られているエッジの順番を，その子ノードを根とする部分木に含まれるノードが将来どれくらいオーバーラップを起こしやすいか予測した値（予測混雑度）をキー値にして降順にソートする． 
+
+混合手順の生成処理の説明の際に詳しく述べるが，混合手順の生成プログラムでは，根に近いミキサーからBFS順でPMD上での配置先を決めていく．
+したがって，予測混雑度をキー値にしてミキサーノードの子ノードを降順で並び替えることで，予測混雑度が高い部分木の根ノードほど，BFS順において比較的早い時点で配置先を決定することができる．
+この仕組みにより，予測混雑度の高い部分木の根ミキサーの方がPMD上での配置先の選択肢が多いという状態を作れるのではないかと考えた．
+また，2$\times$2ミキサーに比べて難しい2$\times$3ミキサーの配置も，配置が優先されるようになれば，増えることにより，少ないフラッシング数で行えるような配置先を選ぶことができるのではないかと考えた．
+
+以上で述べた通り，希釈木の変形操作では，予測混雑度という評価値に基づいて，どのような変形がなされるかが決められる．予測混雑度は，子ミキサーを根とする部分木の，親ミキサーへ試薬液滴の提供数，部分木内に含まれるミキサーノードの数，など幾つかの評価基準によって決まる．
+図~\ref{fig:Transform}（a）と図~\ref{fig:Transform}（b）の変形前後の希釈木の違いを，図~\ref{fig:TransDetail}に示した．
 
 \begin{figure}[tbp]
  \centering\includegraphics[scale=0.5]{img/Transform.pdf}
@@ -36,8 +45,25 @@ Algorithm~\ref{alg:prop}に本論文の提案手法のアルゴリズム全体�
  \caption{希釈木の変形された部分}\label{fig:TransDetail}
 \end{figure}
 
+
+2つ目の処理は，擬似コード内で
+\ref{xntm_pseudo}行目に記述された2$\times$3ミキサーを用いた液滴移動のない混合手順の生成である．
+図~\ref{fig:inputoutput}（a）の希釈木と初期状態のPMDを入力とし，図~\ref{fig:inputoutput}（b）から（g）の混合手順を出力する．
+
 \begin{algorithm}[tbp]
- \caption{提案手法の処理の流れ}\label{alg:prop}
+ \caption{提案手法の処理の流れ}\label{alg:all}
+ \begin{algorithmic}[1]
+     \Require $\mathit{Tree}$：2$\times$2ミキサーノードと2$\times$3ミキサーノード，試薬液滴ノードを含む希釈木 
+     \Require $\mathit{PMD}$：$\mathit{Tree}$を配置するのに十分な大きさを持つPMD  
+     \State $\mathit{TransformedTree} \gets$ transform($Tree$) \Comment{希釈木の変形}\label{transform_pseudo}
+     \State $\mathit{MixInfo \gets}$xntm($\mathit{PMD,TransformedTree}$)  \label{xntm_pseudo}
+
+      \Return $\mathit{MixInfo}$
+ \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[tbp]
+ \caption{xntmの擬似コード}\label{alg:prop}
  \begin{algorithmic}[1]
      \Require $\mathit{Tree}$：2$\times$2ミキサーノードと2$\times$3ミキサーノード，試薬液滴ノードを含む希釈木 
      \Require $\mathit{PMD}$：$\mathit{Tree}$を配置するのに十分な大きさを持つPMD  
