@@ -83,8 +83,10 @@ def genGrid(Vsize,Hsize):
 
 import random
 from pathlib  import Path
-def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops): 
+def PMDImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops,ImageOut=False):
     global Width,Sep,draw
+    if not ImageOut: 
+        return 
     grid,img = genGrid(Vsize,Hsize)
     draw = ImageDraw.Draw(img)
     drop = []
@@ -99,7 +101,7 @@ def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer
                 if NodeInfo[str(hash)].kind == "Mixer": 
                     idx = int(NodeInfo[str(hash)].name[1:])
                     name = "d"+str(idx)
-                    color = Colorlist[idx]
+                    color = ColorList[idx]
                 else : 
                     name = NodeInfo[str(hash)].name 
                     color = "Gray"
@@ -121,7 +123,7 @@ def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer
                     continue 
                 else :
                     MixerIdx = int(Node.name[1:])
-                    color = Colorlist[MixerIdx]
+                    color = ColorList[MixerIdx]
                     cells = getCoveringCell(Node.RefCell,Node.orientation)
                     sy,sx  = Node.RefCell 
                     ey,ex = cells[len(cells)-1]
@@ -131,7 +133,7 @@ def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer
                     draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 15,outline = color,width=10)
                     fontsize = 15 
                     font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
-                    draw.text(((fromx+tox)//2-9,(fromy+toy)//2-9),Node.name,font=font,fill="Black")
+                    draw.text(((fromx+tox)//2-15,(fromy+toy)//2-9),Node.name,font=font,fill="Black")
             else: 
                 continue 
             for hash in WaitingProvDrops: 
@@ -145,7 +147,7 @@ def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer
                     continue
                 else: 
                     MixerIdx = int(Node.name[1:])
-                    color = Colorlist[MixerIdx]
+                    color = ColorList[MixerIdx]
                     cells = getCoveringCell(Node.RefCell,Node.orientation)
                     sy,sx  = Node.RefCell 
                     ey,ex = cells[len(cells)-1]
@@ -168,8 +170,8 @@ def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer
                 if skip : 
                     continue
                 else: 
-                    MixerIdx = int(Node.name[1:])
-                    color = Colorlist[MixerIdx]
+                    MixerIdx = int(Node.name[1:]) 
+                    color = ColorList[MixerIdx] 
                     cells = getCoveringCell(Node.RefCell,Node.orientation)
                     sy,sx  = Node.RefCell 
                     ey,ex = cells[len(cells)-1]
@@ -182,5 +184,58 @@ def PMDImage(filename,Colorlist,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer
                     draw.text(((fromx+tox)//2-9,(fromy+toy)//2-9),Node.name,font=font,fill="Black")
     create_directory("image")
     path = Path("image/",filename+".png")
+    img.save(path)
+
+def ProcessImage(filename,Vsize,Hsize,ColorList,TimeStep,FlushCount,PMD,Mixer,NodeInfo):
+    global Width,Sep,draw
+    grid,img = genGrid(Vsize,Hsize)
+    draw = ImageDraw.Draw(img)
+    drop = []
+    for i in range(Vsize): 
+        for j in range(Hsize): 
+            if PMD[i][j] == 0: 
+                continue 
+            elif PMD[i][j] <0:
+                name = "" 
+                color = "" 
+                hash = abs(PMD[i][j])
+                if NodeInfo[str(hash)].kind == "Mixer": 
+                    idx = int(NodeInfo[str(hash)].name[1:])
+                    name = "d"+str(idx)
+                    color = ColorList[idx]
+                else : 
+                    name = NodeInfo[str(hash)].name 
+                    color = "Gray"
+                #draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 5,fill = color,outline = 'Black',Width=3) 
+                fromy,fromx = (2*i+1)*sep,(2*j+1)*sep
+                toy,tox = fromy+Width,fromx+Width
+                #draw.rectangle([(fromx,fromy),(tox,toy)],fill = color,outline = 'Black',width=3)
+                grid[i][j].change(color,name)
+
+    for hash in Mixer:
+        Node = NodeInfo[str(hash)]
+        Children = Node.ChildrenHash 
+        MixerIdx = int(Node.name[1:])
+        color = ColorList[MixerIdx]
+        cells = getCoveringCell(Node.RefCell,Node.orientation)
+        sy,sx  = Node.RefCell 
+        ey,ex = cells[len(cells)-1]
+
+        fromy,fromx =sy*2*sep+Width ,sx*2*sep+Width
+        toy,tox = grid[ey][ex].ey-Width,grid[ey][ex].ex-Width
+        draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 15,outline = color,width=10)
+        fontsize = 15 
+        font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+        draw.arc([(fromx+sep,fromy+sep),(tox-sep,toy-sep)],30,0,fill="Black",width=5)
+        tri_x,tri_y= tox-sep,(fromy+toy)//2
+        draw.regular_polygon((tri_x,tri_y,(9)),3,rotation=75,fill="Black")
+        draw.text(((fromx+tox)//2-9,(fromy+toy)//2-9),Node.name,font=font,fill="Black")
+
+    S = "T={},F={}".format(TimeStep,FlushCount)
+    fontsize = 20
+    font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+    draw.text((2*sep*Hsize+2*Width-(fontsize+100),2*sep*Vsize+2*Width-(fontsize)),S,font=font,fill="Black")
+    create_directory("image")
+    path = Path("image/","result"+filename+".png")
     img.save(path)
 

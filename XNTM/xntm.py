@@ -22,7 +22,9 @@ class Module:
         self.ProvCell = []
         self.FlushCell = []
         self.CoveringCell = []
-        self.orientation = ""
+        self.orientation = "" 
+        self.MixedTimeStep = -1 
+        self.PlaceTimeStep = -1
 
 #######################################################################################
 ### general use functions
@@ -88,15 +90,17 @@ def getNode(hash):
     return NodeInfo[str(hash)]
 
 def Mixing(MixerHash):
-    global PMDState,CellForFlushing,CellForProtectFromFlushing
+    global NodeInfo,PMDState,CellForFlushing,CellForProtectFromFlushing,TimeStep
+    NodeInfo[str(MixerHash)].MixedTimeStep = TimeStep
     Mixer = getNode(MixerHash)
+    
     for cell in getMixerCoveringCell(Mixer.RefCell,Mixer.orientation): 
         if cell in CellForProtectFromFlushing: 
             CellForProtectFromFlushing.remove(cell)
         y,x = cell
         PMDState[y][x] = -1*MixerHash
-    for ProvCell in Mixer.ProvCell: 
-        CellForProtectFromFlushing.append(ProvCell)
+    for provCell in Mixer.ProvCell: 
+        CellForProtectFromFlushing.append(provCell)
     for FlushCell in Mixer.FlushCell:
         CellForFlushing.append(FlushCell)
     ### Mixingによって発生する状態遷移
@@ -218,14 +222,86 @@ def WritePMD(PlaceCells,v):
         y,x = cell 
         PMDState[y][x] = v 
     
-
 def viewPMD(): 
     global PMDState
     for row in PMDState : 
         for CellState in row: 
             print("{:6d}".format(CellState),end=" ")
         print("")
-        
+
+def countMixerTimeStep(RootHash):
+    TimeSteps = []
+    q = []
+    q.append(RootHash)
+    while(q): 
+        hash = q.pop()
+        Node = getNode(hash)
+        print(Node.name,Node.MixedTimeStep)
+        TimeSteps.append(Node.MixedTimeStep)
+        for chash in Node.ChildrenHash: 
+            if getNode(chash).kind == "Mixer": 
+                q.append(chash)
+    return len(set(TimeSteps))
+
+from .utility import ProcessImage
+def CountFlushing(RootHash,savefile,ColorList,ImageOut=False): 
+    global Vsize,Hsize,TimeStep
+    PMD = [[0 for j in range(Hsize)]for i in range(Vsize)]
+    Drop = {}
+    Mixer = {}
+    q = []
+    q.append(RootHash)
+    while(q): 
+        hash = q.pop()
+        Node = getNode(hash)
+        #print(Node.name,Node.MixedTimeStep)
+        ts = 0
+        if Node.kind=="Mixer":
+            ts = Node.MixedTimeStep
+            if str(ts) not in Mixer:
+                Mixer[str(ts)] = []
+            Mixer[str(ts)].append(hash)
+        else : 
+            ts = Node.PlaceTimeStep 
+            if str(ts) not in Drop:
+                Drop[str(ts)] = []
+            Drop[str(ts)].append(hash)
+        for chash in Node.ChildrenHash: 
+            q.append(chash) 
+    ret = 0
+    for ts in range(1,TimeStep+1):
+        if str(ts) in Drop:
+            for dhash in Drop[str(ts)]:
+                for y,x in getNode(dhash).ProvCell: 
+                    if PMD[y][x]!= 0: 
+                        ret += 1
+                        flushed = []
+                        for i in range(Vsize): 
+                            for j in range(Hsize): 
+                                hash = -1*PMD[i][j]
+                                if PMD[i][j]!= 0 and hash not in flushed:
+                                    Node = getNode(hash)
+                                    if Node.kind=="Mixer":
+                                        provcell = Node.ProvCell 
+                                        covering_cell = Node.CoveringCell 
+                                        for cell in covering_cell: 
+                                            ty,tx = cell
+                                            if cell in provcell : 
+                                                continue 
+                                            else : 
+                                                if PMD[ty][tx]==-1*hash:
+                                                    PMD[ty][tx] = 0 
+                                        flushed.append(hash)
+                    if PMD[y][x]!= 0:
+                        return -2
+                    else: 
+                        PMD[y][x] = -1*dhash 
+        if ImageOut: 
+            ProcessImage(savefile+"_"+str(ts),Vsize,Hsize,ColorList,ts,ret,PMD,Mixer[str(ts)],NodeInfo) 
+        for mhash in Mixer[str(ts)]: 
+            for wy,wx in getNode(mhash).CoveringCell: 
+                PMD[wy][wx] = -1*mhash
+    return ret
 
 ########################################################################################
 def getRatioAndPrefixOfChildren(MHash): 
@@ -410,30 +486,30 @@ def isEmptyLayeredlib(lib):
                 return False 
     return True
 
-def OK(CheckCell,CheckCellState,ModuleHash):
-    global NodeInfo,PMDState
-    checkHash = abs(CheckCellState)
+def CanPlace(ModuleHash,PatternCoveringCells,layer): 
+    global NodeInfo,PMDState,CellForProtectFromFlushing
     Module = getNode(ModuleHash)
+    eval = 0 
 
     NGNode = getAllAncestorsHash(ModuleHash)
     NGtoo = []
     for Hash in NGNode:
-        if Hash == Module.ParentHash: 
-            continue 
         for ng in getNode(Hash).ChildrenHash:  
             NGtoo.append(ng)
-    CoveringCell = getMixerCoveringCell(Module.RefCell,Module.orientationc) if Module.kind == "Mixer" else Module.ProvCell 
+    CoveringCell = PatternCoveringCells
     for cell in CoveringCell: 
         y,x = cell
-        if PMDState[y][x]<0 and (-*PMDState[y][x] in NGNode or -*PMDState[y][x] in NGtoo): 
-            return False 
+        if PMDState[y][x]<0 :
+            cmphash = -1*PMDState[y][x] 
+            if (cmphash in NGNode or cmphash in NGtoo )and cell in CellForProtectFromFlushing:
+                return -1000
+        else: 
+            cmphash = PMDState[y][x] 
+            if (cmphash in NGNode or cmphash in NGtoo )and cell in CellForProtectFromFlushing:  
+                ### 極力辞めたほうがいい
+                return 100000000000.0 * (layer+1)
+    return 0
 
-    if CheckCell in NodeInfo[str(checkHash)].ProvCell: 
-        Ancestor = getAllAncestorsHash(ModuleHash)
-        if NodeInfo[str(checkHash)].ParentHash in Ancestor:
-            return False 
-    else : 
-        return True
 
 def getAllCheckCells(CheckCells,ExpandDirection,SubTreeDepth): 
     global Hsize,Vsize
@@ -495,8 +571,28 @@ def Evallib(lib,PHash):
                 ### 失格
                 return 100000000000000001.0
     ### 以上のパートをくぐり抜けたなら: 配置順がok
-
-    evalv = 0 
+    
+    ### 評価開始
+    evalv = 0
+    ### 配置予定地がまずくないかチェック
+    for layer in range(MaxLayerNum):
+         for idx,prefix in enumerate(ModulePrefix): 
+            for pattern in Layeredlib[layer][idx]: 
+                PatternCoveringCells = []
+                Module = getNode(pattern["hash"])
+                if Module.kind == "Mixer":
+                    RefCell = pattern["ref_cell"]
+                    orientation = pattern["orientation"] if Module.size == 6 else ""
+                    PatternCoveringCells = getMixerCoveringCell(RefCell,orientation)
+                else : 
+                    PatternCoveringCells = copy.deepcopy(pattern["overlapping_cell"])
+                v =  CanPlace(Module.hash,PatternCoveringCells,layer)
+                if v<0: 
+                    ### 失格
+                    return 100000000000000001.0 
+                else : 
+                    evalv += v
+     
     #　ミキサー同士が離れて配置されているか評価
     for layer in range(MaxLayerNum):
         MixerPatterns = copy.deepcopy(Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")] )
@@ -535,21 +631,6 @@ def Evallib(lib,PHash):
                 ### libのlayerが大きいほどflushingの回数増える
                 evalv += 1000.0*(layer+1)
 
-                PatternCoveringCells = []
-                Module = getNode(pattern["hash"])
-                if Module.kind == "Mixer":
-                    RefCell = pattern["ref_cell"]
-                    orientation = pattern["orientation"] if Module.size == 6 else ""
-                    PatternCoveringCells = getMixerCoveringCell(RefCell,orientation)
-                else : 
-                    PatternCoveringCells = copy.deepcopy(pattern["overlapping_cell"])
-                for cell in PatternCoveringCells:
-                    y,x = cell
-                    CheckCellState = PMDState[y][x]
-                    if CheckCellState != PHash and CheckCellState != 0 :
-                        if not OK(cell,CheckCellState,Module.hash): 
-                            ### 失格
-                            return 100000000000000001.0
                 ### 各prov_cellの4方に同lib内patternのprov_cellが無いかチェックする
                 OkDirection = [False for i in range(4)]
                 OnParentCell = copy.deepcopy(pattern["overlapping_cell"]+pattern["flushing_cell"])
@@ -575,7 +656,7 @@ def getOptlib(PHash):
         Assignedlib = AssignModuleTolib(lib,PHash)
         for alib in Assignedlib: 
             alib = mv(alib,PHash)
-            if alib == {}: 
+            if not alib : 
                 continue
             v =  Evallib(alib,PHash)
             if v < min_v: 
@@ -648,7 +729,7 @@ def PMDRootPlace(root,RefCell):
     return root.hash
 
 def WritePlacementInfo(pattern,Hash): 
-    global NodeInfo 
+    global NodeInfo,TimeStep 
     if "ref_cell" in pattern: 
         NodeInfo[str(Hash)].RefCell = pattern["ref_cell"]
     if "orientation" in pattern: 
@@ -659,7 +740,7 @@ def WritePlacementInfo(pattern,Hash):
         NodeInfo[str(Hash)].CoveringCell = pattern["overlapping_cell"] 
     else : 
         NodeInfo[str(Hash)].CoveringCell = getMixerCoveringCell(NodeInfo[str(Hash)].RefCell,NodeInfo[str(Hash)].orientation)
-
+    
     return 
 
 def ChangeState(Hash,NextState): 
@@ -816,6 +897,9 @@ def ReflectStateChanges(StateChanges):
 def PlaceChildren(ParentMixerHash): 
     global NodeInfo,PMDState,PlacementSkippedLib
     StateChanges = [ChangeState(ParentMixerHash,"WaitingProvDrops")]
+    ParentMixer = getNode(ParentMixerHash)
+    PMAllCell = getMixerCoveringCell(ParentMixer.RefCell,ParentMixer.orientation)
+    WritePMD(PMAllCell,0)
     
     lib = getOptlib(ParentMixerHash)
     if not lib : 
@@ -848,7 +932,7 @@ def NoOverlapping(pattern):
     return True
 
 def placelib(Layeredlib,ParentMixerHash): 
-    global MaxLayerNum,CellForProtectFromFlushing
+    global MaxLayerNum,CellForProtectFromFlushing,TimeStep
     retLayeredlib = [[[] for i in range(len(ModulePrefix))] for j in range(MaxLayerNum)]
     
     StateChanges = []
@@ -861,6 +945,7 @@ def placelib(Layeredlib,ParentMixerHash):
                 if not skip and NoOverlapping(pattern):
                     # 試薬液滴
                     if getNode(ModuleHash).kind == "Reagent": 
+                        NodeInfo[str(ModuleHash)].PlaceTimeStep = TimeStep+1
                         WritePMD(pattern["overlapping_cell"],ModuleHash*-1)
                         ### 試薬はフラッシュから守る必要あり
                         for cell in pattern["overlapping_cell"]:
@@ -893,12 +978,12 @@ from .utility import PMDImage
 ### ParentMixer = str(mixer.size) + mixer.orientation
 CntRollBack = 0
 Vsize,Hsize=0,0
-RollBackHash=-1
-def xntm(root,PMDsize,ProcessOut=0,ImageName=0,ColorList=None):
-    FlushCount = 0
-    ImageCount = 0
-    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,RollBackHash
+RollBackHash=[]
+TimeStep = 0 
+def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
+    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,RollBackHash,TimeStep
     Vsize,Hsize = PMDsize 
+    FlushCount,ImageCount,TimeStep = 0,0,0
     globalInit()
     
     ### placement of root mixer
@@ -911,51 +996,60 @@ def xntm(root,PMDsize,ProcessOut=0,ImageName=0,ColorList=None):
         if ImageName and ColorList:
             ImageCount += 1
             imageName = ImageName+"_"+str(ImageCount)
-            PMDImage(imageName,ColorList,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops)
+            PMDImage(imageName,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer=AtTopOfPlacedMixer,WaitingProvDrops=WaitingProvDrops,ImageOut=ImageOut)
 
         if getNode(RootHash).state == "OnlyProvDrop": 
             if ProcessOut :
                 print("混合手順生成完了")
-            return FlushCount
+            result = CountFlushing(RootHash,ImageName,ColorList,ImageOut=ImageOut)
+            return result
 
-        CanDoNothing = True
+        CannotDoAnything = True 
+
         for MixerHash in AtTopOfPlacedMixer: 
             mixer = getNode(MixerHash) 
-            isReadyForMixing = True
             shouldPlaceChildren = True
             for ChildHash in mixer.ChildrenHash:
-                if getNode(ChildHash).state != "OnlyProvDrop": 
-                   isReadyForMixing = False 
                 if getNode(ChildHash).state != "NoTreatment": 
                    shouldPlaceChildren = False
             if shouldPlaceChildren: 
-                CanDoNothing = False
+                CannotDoAnything = False
                 MoreStateChanges = PlaceChildren(MixerHash)
-                for Change in MoreStateChanges: 
-                    StateChanges.append(Change)
-            
-                ### 配置前のときイテレーターに，新たに配置されたミキサーの子の配置を
-                ### そのまま任すと，AtTopOfの中で要素が削除されているから，順番飛ばし
-                ### が発生する．
-            elif isReadyForMixing : 
-                CanDoNothing = False
-                MoreStateChanges = Mixing(MixerHash)
                 for Change in MoreStateChanges: 
                     StateChanges.append(Change)
             else : 
                 continue 
 
         for MixerHash in WaitingProvDrops:
-            isDropsProvidedByChildrenReady = True
+            isDropsProvidedByChildrenReady = True 
             for ChildHash in getNode(MixerHash).ChildrenHash: 
                 if getNode(ChildHash).state != "OnlyProvDrop": 
                     isDropsProvidedByChildrenReady = False
             if isDropsProvidedByChildrenReady : 
-                CanDoNothing = False
+                CannotDoAnything = False
                 stateChange = ChangeState(MixerHash,"AtTopOfPlacedMixer")
                 StateChanges.append(stateChange)
-        
-        if CanDoNothing: 
+
+        ChangedTimeStep = False 
+        if CannotDoAnything: 
+            for MixerHash in AtTopOfPlacedMixer: 
+                mixer = getNode(MixerHash) 
+                isReadyForMixing = True
+                for ChildHash in mixer.ChildrenHash:
+                    if getNode(ChildHash).state != "OnlyProvDrop": 
+                       isReadyForMixing = False 
+                if isReadyForMixing : 
+                    CannotDoAnything = False 
+                    if not ChangedTimeStep: 
+                        ChangedTimeStep = True 
+                        TimeStep += 1
+                    MoreStateChanges = Mixing(MixerHash)
+                    for Change in MoreStateChanges: 
+                        StateChanges.append(Change)
+                else : 
+                    continue 
+
+        if CannotDoAnything: 
             ### Flushing
             Succeed = Flush()
             if not Succeed: 
@@ -983,11 +1077,14 @@ def xntm(root,PMDsize,ProcessOut=0,ImageName=0,ColorList=None):
                 else : 
                     MoreStateChanges,RestOfLib =  placelib(Lib,ParentMixerHash)
                     if Lib == RestOfLib and not PlacedSkipped : 
-                        if RollBackHash != ParentMixerHash: 
+                        return -1
+                        if ParentMixerHash not in RollBackHash  : 
                             MoreStateChanges = RollBack(ParentMixerHash)
                             for Change in MoreStateChanges: 
                                 StateChanges.append(Change)
-                            RollBackHash = ParentMixerHash
+                            if len(RollBackHash)==2:
+                                RollBackHash.pop(0)
+                            RollBackHash.append(ParentMixerHash)
                             CntRollBack += 1
                         else : 
                             return -1
@@ -1003,7 +1100,7 @@ def xntm(root,PMDsize,ProcessOut=0,ImageName=0,ColorList=None):
                 PlacementSkippedLib.append(rest)
 
         code = ReflectStateChanges(StateChanges)
-        if code == -1 or CntRollBack > 1000 or FlushCount>10000:
+        if code == -1 or CntRollBack > 100 or FlushCount>1000:
             if ProcessOut:
                 print("扱えない希釈木です．十分な大きさのPMDを用意しているか確認してください．",file=sys.stderr)
             return -1

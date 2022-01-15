@@ -106,7 +106,7 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind):
             ChildModules = random.choices(IsMixr,weights=ratio,k=len(ProvRatio))
             ProvReagent = {}
             for idx,isMixer in enumerate(ChildModules): 
-                if isMixer and height < MaxHeight : 
+                if isMixer and height < MaxHeight-1 : 
                     Corner = CornerCase(ChildModules,ProvRatio)
                     if not Corner : 
                         mixer = genMixerNode(ProvRatio[idx])
