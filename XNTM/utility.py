@@ -121,19 +121,6 @@ def PMDImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPl
                         skip = True 
                 if skip : 
                     continue 
-                else :
-                    MixerIdx = int(Node.name[1:])
-                    color = ColorList[MixerIdx]
-                    cells = getCoveringCell(Node.RefCell,Node.orientation)
-                    sy,sx  = Node.RefCell 
-                    ey,ex = cells[len(cells)-1]
-
-                    fromy,fromx =sy*2*sep+Width ,sx*2*sep+Width
-                    toy,tox = grid[ey][ex].ey-Width,grid[ey][ex].ex-Width
-                    draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 15,outline = color,width=10)
-                    fontsize = 15 
-                    font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
-                    draw.text(((fromx+tox)//2-15,(fromy+toy)//2-9),Node.name,font=font,fill="Black")
             else: 
                 continue 
             for hash in WaitingProvDrops: 
@@ -158,7 +145,7 @@ def PMDImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPl
                     draw.rounded_rectangle([(fromx-diff,fromy-diff),(tox+diff,toy+diff)],radius = 15,outline = color,width=10)
                     fontsize = 15 
                     font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
-                    draw.text(((fromx+tox)//2-9,(fromy+toy)//2),Node.name,font=font,fill="Black")
+                    draw.text(((fromx+tox)//2-9,(fromy+toy)//2+5),Node.name,font=font,fill="Black")
 
             for hash in AtTopOfPlacedMixer: 
                 Node = NodeInfo[str(hash)]
