@@ -1,19 +1,49 @@
 \chapter{{2×3ミキサーを用いた液滴移動の\bout{ない}混合手順の生成}}
+\label{proposed}
 \section{アルゴリズムの概要}
-\label{overview}
-\ref{overview}~節では，本論文の提案手法である2$\times$3ミキサーを用いた液滴移動の無いPMD上での混合手順の生成アルゴリズムの処理の流れを擬似コードを交えて説明する.
+\ref{proposed}~章では，本論文の提案手法である2$\times$3ミキサーを用いた液滴移動の無いPMD上での混合手順の生成手法の処理の流れを擬似コードを交えて説明する.
 
-Algorithm~\ref{alg:prop}に本論文の提案手法のプログラム全体の擬似コードを示した．
 
+まず，本論文の提案手法の入出力について説明する．
+本論文の提案手法の入力は，図~\ref{fig:inputoutput}（a）の様な，2$\times$2ミキサーノードと2$\times$3ミキサーノード，試薬液滴ノードの3種類のノードをで構成されている希釈木である．
+また，本論文の提案手法の出力は，図~\ref{fig:inputoutput}の（b）から（e）の，入力希釈木に対応したPMD上でのミキサーの混合手順である．
+図~\ref{fig:inputoutput}の（b）から（e）において，同じ図内のミキサーは混合されるタイミング（タイムステップ）が同じミキサー同士である．
+
+図~\ref{fig:inputoutput}の（b）から（e）の混合手順において，図~\ref{fig:inputoutput}（a）の希釈木内で子ノードに対応する試薬液滴やミキサーは，親ミキサーの配置されるセルに提供液滴を残す．
+これによって，本手法においても，NTMと同様にPMD上での試薬液滴の移動のない混合手順の生成が実現されている．
+
+\begin{figure}[tbp]
+ \centering\includegraphics[scale=0.45]{img/OutPut.pdf}
+ \caption{提案手法の入出力}\label{fig:inputoutput}
+\end{figure}
+
+次に，本論文の提案手法のアルゴリズムを擬似コードを交えて説明する．
+Algorithm~\ref{alg:prop}に本論文の提案手法のアルゴリズム全体の擬似コードを示した．
+本論文の提案手法において行われる処理は大きく分けると，擬似コード内で
+\ref{xntm_pseudo}行目以降に記述された2$\times$3ミキサーを用いた液滴移動のない混合手順の生成と，
+\ref{transform_pseudo}行目に記述されている入力された希釈木への変形操作の2つである．
+
+
+希釈木の変形操作では，図~\ref{fig:Transform}（a）のような2$\times$2ミキサーノード，2$\times$3ミキサーノード，
+試薬液滴ノードの3種類のノードを含む希釈木内の各ミキサーノードが，その子ミキサーノードと子試薬液滴ノード（子ノード）との間に張られているエッジの順番を，その子ノードを根とする部分木の予測混雑度をキー値にして降順にソートする．
+
+\begin{figure}[tbp]
+ \centering\includegraphics[scale=0.5]{img/Transform.pdf}
+ \caption{希釈木の変形操作}\label{fig:Transform}
+\end{figure}
+\begin{figure}[tbp]
+ \centering\includegraphics[scale=0.5]{img/TransformInDetail.pdf}
+ \caption{希釈木の変形された部分}\label{fig:TransDetail}
+\end{figure}
 
 \begin{algorithm}[tbp]
- \caption{プログラム全体の処理の流れ}\label{alg:prop}
+ \caption{提案手法の処理の流れ}\label{alg:prop}
  \begin{algorithmic}[1]
-    \Require $\mathit{Tree}$：2$\times$2ミキサーノードと2$\times$3ミキサーノード，試薬液滴ノードを含む希釈木
+     \Require $\mathit{Tree}$：2$\times$2ミキサーノードと2$\times$3ミキサーノード，試薬液滴ノードを含む希釈木 
      \Require $\mathit{PMD}$：$\mathit{Tree}$を配置するのに十分な大きさを持つPMD  
-     \State $\mathit{TransformedTree} \gets$ transform($Tree$) \Comment{希釈木の変形}
-     \State $\mathit{ret} \gets $List() \Comment{混合手順を記録するためのリスト}
-     \State $\mathit{OnPMD}$ $\gets$ List() \Comment{PMD上に配置されているモジュールの管理をするリスト}
+     \State $\mathit{TransformedTree} \gets$ transform($Tree$) \Comment{希釈木の変形}\label{transform_pseudo}
+     \State $\mathit{ret} \gets $List() \Comment{混合手順を記録するためのリスト}\label{xntm_pseudo}
+     \State $\mathit{OnPMD}$ $\gets$ List() \Comment{PMD上に配置されているモジュールの管理をするリスト}\label{xntm}
      \State $\mathit{Process,TimeForFlushing}\,\gets $  PlaceOnPMD($\mathit{child,PMD}$)
      \State $\mathit{ret}$.append($\mathit{Process}$)
      \State $\mathit{OnPMD}$.append($TransformedTree.RootMixer$)
@@ -50,7 +80,10 @@ Algorithm~\ref{alg:prop}に本論文の提案手法のプログラム全体の�
  \end{algorithmic}
 \end{algorithm}
 
-\section{入力希釈木への変形アルゴリズム}
-希釈木の変形操作の手順や目的などを例や擬似コードを用いながら説明する．
 \section{ライブラリを用いたモジュールの配置{アルゴリズム}}
-ライブラリを用いたモジュールの配置方法を例，図や擬似コードを用いながら説明する．
+%ライブラリを用いたモジュールの配置方法を例，図や擬似コードを用いながら説明する．
+\section{入力希釈木の変形アルゴリズム}
+
+
+%希釈木の変形操作の手順や目的などを例や擬似コードを用いながら説明する．
+
