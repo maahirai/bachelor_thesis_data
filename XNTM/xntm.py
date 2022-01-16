@@ -271,6 +271,7 @@ def CountFlushing(RootHash,savefile,ColorList,ImageOut=False):
         for chash in Node.ChildrenHash: 
             q.append(chash) 
     ret = 0
+    skipped = 0
     for ts in range(1,TimeStep+1):
         if str(ts) in Drop:
             for dhash in Drop[str(ts)]:
@@ -298,11 +299,14 @@ def CountFlushing(RootHash,savefile,ColorList,ImageOut=False):
                         return -2
                     else: 
                         PMD[y][x] = -1*dhash 
-        if ImageOut: 
-            ProcessImage(savefile+"_"+str(ts),Vsize,Hsize,ColorList,ts,ret,PMD,Mixer[str(ts)],NodeInfo) 
-        for mhash in Mixer[str(ts)]: 
-            for wy,wx in getNode(mhash).CoveringCell: 
-                PMD[wy][wx] = -1*mhash
+        if str(ts) in Mixer:
+            if ImageOut: 
+                ProcessImage(savefile+"_"+str(ts),Vsize,Hsize,ColorList,ts-skipped,ret,PMD,Mixer[str(ts)],NodeInfo) 
+            for mhash in Mixer[str(ts)]: 
+                for wy,wx in getNode(mhash).CoveringCell: 
+                    PMD[wy][wx] = -1*mhash 
+        else : 
+            skipped += 1 
     return ret
 
 ########################################################################################
@@ -991,48 +995,6 @@ def placelib(Hashlib,ParentMixerHash):
         return StateChanges,{}
     return StateChanges,retHashlib
  
-#def placelib(Layeredlib,ParentMixerHash): 
-#    global MaxLayerNum,CellForProtectFromFlushing,TimeStep
-#    retLayeredlib = [[[] for i in range(len(ModulePrefix))] for j in range(MaxLayerNum)]
-#    
-#    StateChanges = []
-#    skip = False
-#    for layer in range(MaxLayerNum): 
-#        modules = []
-#        for prefix in ModulePrefix: 
-#            PrefixIdx = getModulePrefixIdx(prefix)
-#            for pattern in Layeredlib[layer][PrefixIdx]:
-#                ModuleHash = pattern["hash"]
-#                if not skip and NoOverlapping(pattern):
-#                    # 試薬液滴
-#                    if getNode(ModuleHash).kind == "Reagent": 
-#                        NodeInfo[str(ModuleHash)].PlaceTimeStep = TimeStep+1
-#                        WritePMD(pattern["overlapping_cell"],ModuleHash*-1)
-#                        ### 試薬はフラッシュから守る必要あり
-#                        for cell in pattern["overlapping_cell"]:
-#                            CellForProtectFromFlushing.append(cell)
-#                        WritePlacementInfo(pattern,ModuleHash)
-#                        stateChange = ChangeState(ModuleHash,"OnlyProvDrop")
-#                        StateChanges.append(stateChange) 
-#                    else : 
-#                        orientation = ""
-#                        if "orientation" in pattern :
-#                            orientation = pattern["orientation"]
-#                        WritePMD(getMixerCoveringCell(pattern["ref_cell"],orientation),ModuleHash)
-#                        stateChange = ChangeState(ModuleHash,"AtTopOfPlacedMixer")
-#                        WritePlacementInfo(pattern,ModuleHash)
-#                        StateChanges.append(stateChange) 
-#                else: 
-#                    phash = getNode(ModuleHash).ParentHash
-#                    skip = True 
-#                    WritePlacementInfo(pattern,ModuleHash)
-#                    retLayeredlib[layer][PrefixIdx].append(pattern)
-#                    stateChange = ChangeState(ModuleHash,"PlacementSkipped")
-#                    StateChanges.append(stateChange) 
-#    if isEmptyLayeredlib(retLayeredlib):
-#        return StateChanges,[]
-#    return StateChanges,retLayeredlib
-   
 from .utility import PMDImage
 ### lib内のパターンは評価の際に対応するハッシュ値をパッキングする．
 ### 使用するlibが決定した際に，refCellなどをNodeInfo に書き込む

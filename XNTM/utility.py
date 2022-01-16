@@ -12,15 +12,15 @@ class Cell:
     global sep,Width,draw
     def __init__(self,y,x,color="",state=""): 
         ### バルブ
-        draw.rectangle([(x+sep,y),(x+sep+Width,y+Width-1)],fill = "#8FBC8F",outline = "Black",width=1)
+        draw.rectangle([(x+sep,y),(x+sep+Width,y+Width)],fill = "#8FBC8F",outline = "Black",width=1)
         draw.rectangle([(x+sep,y+2*sep),(x+sep+Width,y+2*sep+Width)],fill = "#8FBC8F",outline = "Black",width=1)
-        draw.rectangle([(x,y+sep),(x+Width-1,y+sep+Width)],fill = "#8FBC8F",outline = "Black",width=1)
+        draw.rectangle([(x,y+sep),(x+Width,y+sep+Width)],fill = "#8FBC8F",outline = "Black",width=1)
         draw.rectangle([(x+2*sep,y+sep),(x+2*sep+Width,y+sep+Width)],fill = "#8FBC8F",outline = "Black",width=1) 
         
         self.color = color if color else "#dcdcdc"
         self.state = state if state else ""
-        draw.rectangle([(x+sep,y+Width),(x+sep+Width,y+2*sep)],fill = self.color)
-        draw.rectangle([(x+Width,y+sep),(x+2*sep,y+sep+Width)],fill = self.color)
+        draw.rectangle([(x+sep,y+Width+1),(x+sep+Width,y+2*sep-1)],fill = self.color)
+        draw.rectangle([(x+Width+1,y+sep),(x+2*sep-1,y+sep+Width)],fill = self.color)
         dropfontsize = 10
         dropfont = ImageFont.truetype("Menlo for Powerline.ttf", dropfontsize)
         fromy,fromx = x+sep,y+sep 
@@ -35,8 +35,8 @@ class Cell:
     def change(self,color,state):
         self.color = color 
         self.state = state 
-        draw.rectangle([(self.sx+sep,self.sy+Width),(self.sx+sep+Width,self.sy+2*sep-1)],fill = self.color)
-        draw.rectangle([(self.sx+Width,self.sy+sep),(self.sx+2*sep-1,self.sy+sep+Width)],fill = self.color)
+        draw.rectangle([(self.sx+sep,self.sy+Width+1),(self.sx+sep+Width,self.sy+2*sep-1)],fill = self.color)
+        draw.rectangle([(self.sx+Width+1,self.sy+sep),(self.sx+2*sep-1,self.sy+sep+Width)],fill = self.color)
         dropfontsize = 10
         dropfont = ImageFont.truetype("Menlo for Powerline.ttf", dropfontsize)
         fromy,fromx = self.sy+sep,self.sx+sep 
