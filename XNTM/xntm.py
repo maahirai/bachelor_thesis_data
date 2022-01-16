@@ -509,7 +509,7 @@ def CanPlace(ModuleHash,PatternCoveringCells,layer):
             if (cmphash in NGNode or cmphash in NGtoo )and cell in CellForProtectFromFlushing:
                 return -1000
             elif cell in CellForProtectFromFlushing: 
-                cmpv = 1000000.0*(2**(layer+1))
+                cmpv = 1000000.0*(2**(layer+1))*getNode(ModuleHash).SubTreeDepth
                 if eval < cmpv:
                     eval = cmpv
         else: 
@@ -518,7 +518,7 @@ def CanPlace(ModuleHash,PatternCoveringCells,layer):
                 ### 極力辞めたほうがいい
                 return 100000000000.0 * (layer+1)
             elif cmphash != 0 and cmphash != Module.ParentHash: 
-                cmpv = 10000.0/(layer+1)
+                cmpv = 10000.0/(layer+1)*getNode(ModuleHash).SubTreeDepth
                 if eval < cmpv:
                     eval = cmpv
     return eval
@@ -678,7 +678,7 @@ def Evallib(lib,PHash):
                     CheckCellState = PMDState[checkY][checkX]
                     if CheckCellState != 0 and CheckCellState != PHash:
                         ### オーバーラップが起こるかも
-                        evalv *= 1000.0/(layer+1)
+                        evalv += 1000.0/(layer+1)
     return evalv
 
 def getOptlib(PHash): 
