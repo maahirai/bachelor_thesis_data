@@ -35,12 +35,12 @@ def genProvidedRatio(Msize):
     First = random.randint(1,rest-1)
     Ratio.append(First)
     rest -= First
-
-    while rest: 
+    
+    while rest : 
         v = random.randint(1,rest)
         rest -= v
         Ratio.append(v)
-    return Ratio
+    return Ratio 
 
 def AllReagentUsed(Dict): 
     global ReagentName 
@@ -83,7 +83,7 @@ def CornerCase(modules,ProvRatio):
         
 ReagentName = []
 AllModules = {}
-def genInputTree(MaxHeight,MixerRatio,ReagentKind): 
+def genInputTree(MaxHeight,MixerRatio,ReagentKind,fair=False): 
     global HASHES,AllModules,ReagentName
     for i in range(1,ReagentKind+1): 
         ReagentName.append("R"+str(i))
@@ -104,6 +104,9 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind):
             IsMixr = [True,False]
             ratio = [MixerRatio,1-MixerRatio]
             ChildModules = random.choices(IsMixr,weights=ratio,k=len(ProvRatio))
+            if fair : 
+                while (ProvRatio==[1,5] and ChildModules==[True,True]) or (ProvRatio==[1,3] and ChildModules==[True,True]): 
+                    ChildModules = random.choices(IsMixr,weights=ratio,k=len(ProvRatio))
             ProvReagent = {}
             for idx,isMixer in enumerate(ChildModules): 
                 if isMixer and height < MaxHeight-1 : 
@@ -116,7 +119,6 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind):
                         mixer = genMixerNode(ProvRatio[idx],Forced=Corner)
                         e.children.append(mixer.hash)
                         q.append([mixer,height+1])
-
                 else: 
                     name = random.choice(ReagentName)
                     if name in ProvReagent: 

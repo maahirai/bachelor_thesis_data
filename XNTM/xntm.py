@@ -40,7 +40,7 @@ def globalInit():
     PlacementSkippedLib = []
     MixerNodeHash = []
     SubTreeDepthMean = 0
-    RollBackHash=[]
+    RollBackHash={}
 
 def viewAllModule(RootHash): 
     q = [] 
@@ -509,13 +509,19 @@ def CanPlace(ModuleHash,PatternCoveringCells,layer):
             if (cmphash in NGNode or cmphash in NGtoo )and cell in CellForProtectFromFlushing:
                 return -1000
             elif cell in CellForProtectFromFlushing: 
-                return 1000000.0*(2**(layer+1))
+                cmpv = 1000000.0*(2**(layer+1))
+                if eval < cmpv:
+                    eval = cmpv
         else: 
             cmphash = PMDState[y][x] 
             if cmphash in NGNode or cmphash in NGtoo :  
                 ### 極力辞めたほうがいい
                 return 100000000000.0 * (layer+1)
-    return 0
+            elif cmphash != 0 and cmphash != Module.ParentHash: 
+                cmpv = 10000.0/(layer+1)
+                if eval < cmpv:
+                    eval = cmpv
+    return eval
 
 
 def getAllCheckCells(CheckCells,ExpandDirection,SubTreeDepth): 
@@ -599,7 +605,6 @@ def Evallib(lib,PHash):
                     return 100000000000000001.0 
                 else : 
                     evalv += v
-    
     #　ミキサー同士が離れて配置されているか評価
     for layer in range(MaxLayerNum):
         MixerPatterns = copy.deepcopy(Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")] )
@@ -1010,7 +1015,7 @@ from .utility import PMDImage
 ### ParentMixer = str(mixer.size) + mixer.orientation
 CntRollBack = 0
 Vsize,Hsize=0,0
-RollBackHash=[]
+RollBackHash={}
 TimeStep = 0 
 def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
     global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,RollBackHash,TimeStep
@@ -1109,16 +1114,15 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
                 else : 
                     MoreStateChanges,RestOfLib =  placelib(Lib,ParentMixerHash)
                     if Lib == RestOfLib and not PlacedSkipped : 
-                        if ParentMixerHash not in RollBackHash  : 
-                            MoreStateChanges = RollBack(ParentMixerHash)
-                            for Change in MoreStateChanges: 
-                                StateChanges.append(Change)
-                            if len(RollBackHash)==2:
-                                RollBackHash.pop(0)
-                            RollBackHash.append(ParentMixerHash)
-                            CntRollBack += 1
-                        else : 
-                            return -1
+                        MoreStateChanges = RollBack(ParentMixerHash)
+                        for Change in MoreStateChanges: 
+                            StateChanges.append(Change)
+                        lib = getOptlib(ParentMixerHash)
+                        if ParentMixerHash in RollBackHash:
+                            if lib == RollBackHash[ParentMixerHash]: 
+                                return -1
+                        RollBackHash[ParentMixerHash]=lib
+                        CntRollBack += 1
                     else : 
                         for change in MoreStateChanges: 
                             StateChanges.append(change)
