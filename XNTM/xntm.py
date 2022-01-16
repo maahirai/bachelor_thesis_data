@@ -562,7 +562,7 @@ def getAllCheckCells(CheckCells,ExpandDirection,SubTreeDepth):
     return ret
 
 def Evallib(lib,PHash):
-    global PMDState,MaxLayerNum,CellForProtectFromFlushing,SubTreeDepthMean
+    global PMDState,MaxLayerNum,CellForProtectFromFlushing,SubTreeDepthMean,Vsize,Hsize
     PMixer = getNode(PHash)
     Layeredlib = getLayeredlib(lib)
 
@@ -583,7 +583,19 @@ def Evallib(lib,PHash):
                 ### 失格
                 return 100000000000000001.0
     ### 以上のパートをくぐり抜けたなら: 配置順がok
-    
+   
+    ### 親ミキサーの中心座標を求める.
+    center_y,center_x = (Vsize-1)/2,(Hsize-1)/2
+    pmixer_cy,pmixer_cx = 0,0
+    length = 0
+    for pcell in getNode(PHash).CoveringCell: 
+        y,x = pcell 
+        pmixer_cy += y 
+        pmixer_cx += x 
+        length += 1
+    pmixer_cy /= length 
+    pmixer_cx /= length 
+
     ### 評価開始
     evalv = 0
     ### 配置予定地がまずくないかチェック
@@ -599,37 +611,69 @@ def Evallib(lib,PHash):
                 else : 
                     PatternCoveringCells = copy.deepcopy(pattern["overlapping_cell"])
                     # 親ミキサーから見た配置方向がPMDの中心方向と同じなら，配置できない状況が生まれやすい．
-                    center_y,center_x = (Vsize-1)/2,(Hsize-1)/2
-                    pmixer_cy,pmixer_cx = 0,0
-                    length = 0
-                    for pcell in getNode(PHash).CoveringCell: 
-                        y,x = pcell 
-                        pmixer_cy += y 
-                        pmixer_cx += x 
-                        length += 1
-                    pmixer_cy /= length 
-                    pmixer_cx /= length 
                     diff_cy,diff_cx = center_y-pmixer_cy,center_x-pmixer_cx 
                     for cell in PatternCoveringCells:
                         y,x = cell
                         if diff_cy>0:
                             if y>pmixer_cy:
-                                evalv += 100/abs(y-pmixer_cy)
+                                #evalv += 1000/2**(abs(y-pmixer_cy))
+                                evalv += 1000/2**(abs(y-center_y))
                         elif diff_cy<0: 
                             if y<pmixer_cy:
-                                evalv += 100/abs(y-pmixer_cy)
+                                #evalv += 1000/2**(abs(y-pmixer_cy))
+                                evalv += 1000/2**(abs(y-center_y))
                         if diff_cx>0:
-                            if x > pmixer_cx: 
-                                evalv += 100/abs(x-pmixer_cx)
+                            if x-pmixer_cx> 0: 
+                                #evalv += 1000/2**(abs(x-pmixer_cx))
+                                evalv += 1000/2**(abs(x-center_x))
                         elif diff_cx<0:
-                            if x < pmixer_cx: 
-                                evalv += 100/abs(x-pmixer_cx)
+                            if pmixer_cx-x>0 : 
+                                #evalv += 1000/2**(abs(x-pmixer_cx))
+                                evalv += 1000/2**(abs(x-center_x))
                 v =  CanPlace(Module.hash,PatternCoveringCells,layer)
                 if v<0: 
                     ### 失格
                     return 100000000000000001.0 
                 else : 
                     evalv += v
+
+    ### フラッシュはできるか確認
+    ChildrenHashes = copy.deepcopy(PMixer.ChildrenHash)
+    overlappcell = []
+    flushcell = []
+    NGNode = getAllAncestorsHash(PHash)
+    NGtoo = []
+    for Hash in NGNode:
+        for ng in getNode(Hash).ChildrenHash:  
+            NGtoo.append(ng)
+    NGNode+= NGtoo
+    for layer in range(MaxLayerNum):
+        MixerPatterns = Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")]
+        hashes = []
+        for pattern in MixerPatterns: 
+            hashes.append(pattern["hash"]) 
+        Hashlib = getHashlib(lib)
+        dy = [0,1,0,-1]
+        dx = [-1,0,1,0]
+        for hash in getNode(PHash).ChildrenHash: 
+            if hash in hashes: 
+                for cell in Hashlib[str(hash)]["overlapping_cell"]:
+                    overlappcell.append(cell)
+                for cell in Hashlib[str(hash)]["flushing_cell"]:
+                    flushcell.append(cell)
+        for cell in flushcell: 
+            y,x = cell
+            NG = 0
+            for way in range(4): 
+                ny,nx=y+dy[way],x+dx[way]
+                ncell = [ny,nx]
+                if ncell in overlappcell or (PMDState[ny][nx] <0 and abs(PMDState[ny][nx]) in NGNode ):
+                    NG += 1
+            if NG>=3 : 
+                #失格
+                return 100000000000000001.0
+        flushcell = []
+
     #　ミキサー同士が離れて配置されているか評価
     for layer in range(MaxLayerNum):
         MixerPatterns = copy.deepcopy(Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")] )
@@ -653,7 +697,7 @@ def Evallib(lib,PHash):
                         if MinDist > tdist : 
                             MinDist = tdist 
                 ### 各ミキサーノードを根とする部分木が子孫ノードを持つほど，ミキサー間の距離が重要になってくる
-                expo = (((getNode(FHash).SubTreeDepth+getNode(SHash).SubTreeDepth+layer))-(2**(MinDist)*SubTreeDepthMean))
+                expo = (((getNode(FHash).SubTreeDepth+getNode(SHash).SubTreeDepth))-(2**(MinDist)*SubTreeDepthMean))
                 if expo < 0: 
                     expo = 0
                 v = 1000*(expo)
@@ -687,8 +731,6 @@ def Evallib(lib,PHash):
                 if diff > 0:
                     evalv += diff*1000
             for pattern in Layeredlib[layer][idx]: 
-                ### libのlayerが大きいほどflushingの回数増える
-
                 ### 各prov_cellの4方に同lib内patternのprov_cellが無いかチェックする
                 OkDirection = [False for i in range(4)]
                 OnParentCell = copy.deepcopy(pattern["overlapping_cell"]+pattern["flushing_cell"])
@@ -703,7 +745,8 @@ def Evallib(lib,PHash):
                     CheckCellState = PMDState[checkY][checkX]
                     if CheckCellState != 0 and CheckCellState != PHash:
                         ### オーバーラップが起こるかも
-                        evalv += 1000.0/(layer+1)
+                        dist= abs(center_y-checkY)+abs(center_x-checkX)
+                        evalv += 1000.0/((layer+1)*dist)
     return evalv
 
 def getOptlib(PHash): 
@@ -1143,6 +1186,7 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
                         for Change in MoreStateChanges: 
                             StateChanges.append(Change)
                         lib = getOptlib(ParentMixerHash)
+                        print(getNode(ParentMixerHash).name,lib)
                         if ParentMixerHash in RollBackHash:
                             if lib == RollBackHash[ParentMixerHash]: 
                                 return -1
