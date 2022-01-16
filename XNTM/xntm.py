@@ -243,7 +243,6 @@ def CountFlushing(RootHash,savefile,ColorList,ImageOut=False):
     while(q): 
         hash = q.pop()
         Node = getNode(hash)
-        #print(Node.name,Node.MixedTimeStep)
         ts = 0
         if Node.kind=="Mixer":
             ts = Node.MixedTimeStep
@@ -1135,11 +1134,13 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
                 PlacementSkippedLib.append(rest)
 
         code = ReflectStateChanges(StateChanges)
-        if code == -1 or CntRollBack > 100 or FlushCount>1000:
+        if code == -1 or CntRollBack > 100:
             if ProcessOut:
                 print("扱えない希釈木です．十分な大きさのPMDを用意しているか確認してください．",file=sys.stderr)
             return -1
-        
+        elif  FlushCount>1000:
+            return FlushCount 
+
         if ProcessOut:
             viewAllModule(RootHash)
             print(StateChanges)
