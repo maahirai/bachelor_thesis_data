@@ -31,7 +31,7 @@ class Module:
 ModulePrefix = ["6","4","r"]
 
 def globalInit(): 
-    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,SubTreeDepthMean,MixerNodeHash
+    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,SubTreeDepthMean,MixerNodeHash,RollBackHash
     PMDState = [[0 for j in range(Hsize)] for i in range(Vsize)]
     NodeInfo = {}
     CntRollBack = 0
@@ -40,6 +40,7 @@ def globalInit():
     PlacementSkippedLib = []
     MixerNodeHash = []
     SubTreeDepthMean = 0
+    RollBackHash=[]
 
 def viewAllModule(RootHash): 
     q = [] 
@@ -523,7 +524,7 @@ def CanPlace(ModuleHash,PatternCoveringCells,layer):
                 return -1000
         else: 
             cmphash = PMDState[y][x] 
-            if (cmphash in NGNode or cmphash in NGtoo )and cell in CellForProtectFromFlushing:  
+            if cmphash in NGNode or cmphash in NGtoo :  
                 ### 極力辞めたほうがいい
                 return 100000000000.0 * (layer+1)
     return 0
@@ -1020,7 +1021,7 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
             ImageCount += 1
             imageName = ImageName+"_"+str(ImageCount)
             PMDImage(imageName,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer=AtTopOfPlacedMixer,WaitingProvDrops=WaitingProvDrops,ImageOut=ImageOut)
-
+        
         if getNode(RootHash).state == "OnlyProvDrop": 
             if ProcessOut :
                 print("混合手順生成完了")
