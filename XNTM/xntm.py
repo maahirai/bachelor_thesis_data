@@ -637,43 +637,6 @@ def Evallib(lib,PHash):
                 else : 
                     evalv += v
 
-    ### フラッシュはできるか確認
-    ChildrenHashes = copy.deepcopy(PMixer.ChildrenHash)
-    overlappcell = []
-    flushcell = []
-    NGNode = getAllAncestorsHash(PHash)
-    NGtoo = []
-    for Hash in NGNode:
-        for ng in getNode(Hash).ChildrenHash:  
-            NGtoo.append(ng)
-    NGNode+= NGtoo
-    for layer in range(MaxLayerNum):
-        MixerPatterns = Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")]
-        hashes = []
-        for pattern in MixerPatterns: 
-            hashes.append(pattern["hash"]) 
-        Hashlib = getHashlib(lib)
-        dy = [0,1,0,-1]
-        dx = [-1,0,1,0]
-        for hash in getNode(PHash).ChildrenHash: 
-            if hash in hashes: 
-                for cell in Hashlib[str(hash)]["overlapping_cell"]:
-                    overlappcell.append(cell)
-                for cell in Hashlib[str(hash)]["flushing_cell"]:
-                    flushcell.append(cell)
-        for cell in flushcell: 
-            y,x = cell
-            NG = 0
-            for way in range(4): 
-                ny,nx=y+dy[way],x+dx[way]
-                ncell = [ny,nx]
-                if ncell in overlappcell or (PMDState[ny][nx] <0 and abs(PMDState[ny][nx]) in NGNode ):
-                    NG += 1
-            if NG>=3 : 
-                #失格
-                return 100000000000000001.0
-        flushcell = []
-
     #　ミキサー同士が離れて配置されているか評価
     for layer in range(MaxLayerNum):
         MixerPatterns = copy.deepcopy(Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")] )
