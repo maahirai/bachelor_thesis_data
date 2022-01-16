@@ -598,6 +598,32 @@ def Evallib(lib,PHash):
                     PatternCoveringCells = getMixerCoveringCell(RefCell,orientation)
                 else : 
                     PatternCoveringCells = copy.deepcopy(pattern["overlapping_cell"])
+                    # 親ミキサーから見た配置方向がPMDの中心方向と同じなら，配置できない状況が生まれやすい．
+                    center_y,center_x = (Vsize-1)/2,(Hsize-1)/2
+                    pmixer_cy,pmixer_cx = 0,0
+                    length = 0
+                    for pcell in getNode(PHash).CoveringCell: 
+                        y,x = pcell 
+                        pmixer_cy += y 
+                        pmixer_cx += x 
+                        length += 1
+                    pmixer_cy /= length 
+                    pmixer_cx /= length 
+                    diff_cy,diff_cx = center_y-pmixer_cy,center_x-pmixer_cx 
+                    for cell in PatternCoveringCells:
+                        y,x = cell
+                        if diff_cy>0:
+                            if y>pmixer_cy:
+                                evalv += 100/abs(y-pmixer_cy)
+                        elif diff_cy<0: 
+                            if y<pmixer_cy:
+                                evalv += 100/abs(y-pmixer_cy)
+                        if diff_cx>0:
+                            if x > pmixer_cx: 
+                                evalv += 100/abs(x-pmixer_cx)
+                        elif diff_cx<0:
+                            if x < pmixer_cx: 
+                                evalv += 100/abs(x-pmixer_cx)
                 v =  CanPlace(Module.hash,PatternCoveringCells,layer)
                 if v<0: 
                     ### 失格
