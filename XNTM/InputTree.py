@@ -105,7 +105,7 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind,fair=False):
             ratio = [MixerRatio,1-MixerRatio]
             ChildModules = random.choices(IsMixr,weights=ratio,k=len(ProvRatio))
             if fair : 
-                while (ProvRatio==[1,5] and ChildModules[1]==[True]) or (ProvRatio==[1,3] and ChildModules[1]==[True]): 
+                while (ProvRatio==[1,5] and ChildModules[1]==True) or (ProvRatio==[1,3] and ChildModules[1]==True): 
                     ChildModules = random.choices(IsMixr,weights=ratio,k=len(ProvRatio))
             ProvReagent = {}
             for idx,isMixer in enumerate(ChildModules): 
