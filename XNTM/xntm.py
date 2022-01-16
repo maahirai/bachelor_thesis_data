@@ -31,13 +31,15 @@ class Module:
 ModulePrefix = ["6","4","r"]
 
 def globalInit(): 
-    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack
+    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,SubTreeDepthMean,MixerNodeHash
     PMDState = [[0 for j in range(Hsize)] for i in range(Vsize)]
     NodeInfo = {}
     CntRollBack = 0
     PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,Done = [],[],[],[],[]
     CellForFlushing,CellForProtectFromFlushing = [],[]
     PlacementSkippedLib = []
+    MixerNodeHash = []
+    SubTreeDepthMean = 0
 
 def viewAllModule(RootHash): 
     q = [] 
@@ -465,7 +467,7 @@ def AssignModuleTolib(lib,PHash):
     
 MaxLayerNum = 6 
 def getLayeredlib(lib): 
-    global MaxLayerNum 
+    global MaxLayerNum,ModulePrefix
     if lib == {}: 
         return {}
     Layeredlib = [[[] for i in range(len(ModulePrefix))] for j in range(MaxLayerNum)]
@@ -485,6 +487,18 @@ def isEmptyLayeredlib(lib):
             if lib[i][j]: 
                 return False 
     return True
+
+def getHashlib(lib): 
+    Hashlib = {}
+    for prefix in ModulePrefix:
+        ModulePatterns = lib["Module"][prefix]
+        for pattern in ModulePatterns: 
+            if "hash" in pattern: 
+                hash = pattern["hash"]
+                Hashlib[str(hash)] = pattern
+            else : 
+                print("getHashlib():ハッシュ値がアサインされていないlibを受け取りました．",file=sys.stderr)
+    return Hashlib 
 
 def CanPlace(ModuleHash,PatternCoveringCells,layer): 
     global NodeInfo,PMDState,CellForProtectFromFlushing
@@ -550,7 +564,7 @@ def getAllCheckCells(CheckCells,ExpandDirection,SubTreeDepth):
     return ret
 
 def Evallib(lib,PHash):
-    global PMDState,MaxLayerNum,CellForProtectFromFlushing
+    global PMDState,MaxLayerNum,CellForProtectFromFlushing,SubTreeDepthMean
     PMixer = getNode(PHash)
     Layeredlib = getLayeredlib(lib)
 
@@ -616,10 +630,11 @@ def Evallib(lib,PHash):
                         if MinDist > tdist : 
                             MinDist = tdist 
                 ### 各ミキサーノードを根とする部分木が子孫ノードを持つほど，ミキサー間の距離が重要になってくる
-                expo = 3**((getNode(FHash).SubTreeDepth+getNode(SHash).SubTreeDepth+(layer+1))-(3*MinDist))
+                expo = (((getNode(FHash).SubTreeDepth+getNode(SHash).SubTreeDepth+layer))-(2**(MinDist)*SubTreeDepthMean))
                 if expo < 0: 
                     expo = 0
-                evalv += 100*(expo)
+                v = 1000*(expo)
+                evalv += v
 
     PMixerCoveringCell = getMixerCoveringCell(PMixer.RefCell,PMixer.orientation)
     dy = [0,1,0,-1]
@@ -669,12 +684,13 @@ def getOptlib(PHash):
 PMDState = []
 NodeInfo = {}
 MixerNodeHash = []
-
+SubTreeDepthMean = 0
 def NodeInfoInit(root): 
-    global NodeInfo,MixerNodeHash
+    global NodeInfo,MixerNodeHash,SubTreeDepthMean
     q = []
     q.append(root)
     leaves = []
+    d = []
     while(q): 
         e = q.pop(0)
         if not e.children: 
@@ -694,10 +710,16 @@ def NodeInfoInit(root):
         hash,height = e 
         Node = getNode(hash)
         if  Node.SubTreeDepth < height: 
-            NodeInfo[str(hash)].SubTreeDepth = height
+            NodeInfo[str(hash)].SubTreeDepth = height 
         PHash = Node.ParentHash
         if PHash != 0 : 
             q.append([PHash,height+1])
+    for mhash in MixerNodeHash: 
+        d.append(NodeInfo[str(mhash)].SubTreeDepth)
+    Sum = 0
+    for depth in set(d): 
+        Sum += depth 
+    SubTreeDepthMean = Sum/len(set(d))
     return 
           
 CellForFlushing = []
@@ -905,8 +927,8 @@ def PlaceChildren(ParentMixerHash):
     if not lib : 
         StateChanges.append([-1,[]])
         return StateChanges
-    Layeredlib = getLayeredlib(lib)
-    MoreStateChanges,RestOflib = placelib(Layeredlib,ParentMixerHash)
+    Hashlib = getHashlib(lib)
+    MoreStateChanges,RestOflib = placelib(Hashlib,ParentMixerHash)
     ### 配置しきれなかったなら,
     if RestOflib: 
         PlacementSkippedLib.append([ParentMixerHash,RestOflib])
@@ -931,46 +953,85 @@ def NoOverlapping(pattern):
             return False 
     return True
 
-def placelib(Layeredlib,ParentMixerHash): 
+def placelib(Hashlib,ParentMixerHash): 
     global MaxLayerNum,CellForProtectFromFlushing,TimeStep
-    retLayeredlib = [[[] for i in range(len(ModulePrefix))] for j in range(MaxLayerNum)]
-    
+    retHashlib = {}
     StateChanges = []
-    skip = False
-    for layer in range(MaxLayerNum): 
-        for prefix in ModulePrefix: 
-            PrefixIdx = getModulePrefixIdx(prefix)
-            for pattern in Layeredlib[layer][PrefixIdx]:
-                ModuleHash = pattern["hash"]
-                if not skip and NoOverlapping(pattern):
-                    # 試薬液滴
-                    if getNode(ModuleHash).kind == "Reagent": 
-                        NodeInfo[str(ModuleHash)].PlaceTimeStep = TimeStep+1
-                        WritePMD(pattern["overlapping_cell"],ModuleHash*-1)
-                        ### 試薬はフラッシュから守る必要あり
-                        for cell in pattern["overlapping_cell"]:
-                            CellForProtectFromFlushing.append(cell)
-                        WritePlacementInfo(pattern,ModuleHash)
-                        stateChange = ChangeState(ModuleHash,"OnlyProvDrop")
-                        StateChanges.append(stateChange) 
-                    else : 
-                        orientation = ""
-                        if "orientation" in pattern :
-                            orientation = pattern["orientation"]
-                        WritePMD(getMixerCoveringCell(pattern["ref_cell"],orientation),ModuleHash)
-                        stateChange = ChangeState(ModuleHash,"AtTopOfPlacedMixer")
-                        WritePlacementInfo(pattern,ModuleHash)
-                        StateChanges.append(stateChange) 
-                else: 
-                    phash = getNode(ModuleHash).ParentHash
-                    skip = True 
+    skip = False 
+    PlacementOrder = copy.deepcopy(getNode(ParentMixerHash).ChildrenHash)
+    for ModuleHash in PlacementOrder: 
+        if str(ModuleHash) in Hashlib:
+            pattern = Hashlib[str(ModuleHash)]
+            if not skip and NoOverlapping(pattern):
+                # 試薬液滴
+                if getNode(ModuleHash).kind == "Reagent": 
+                    NodeInfo[str(ModuleHash)].PlaceTimeStep = TimeStep+1
+                    WritePMD(pattern["overlapping_cell"],ModuleHash*-1)
+                    ### 試薬はフラッシュから守る必要あり
+                    for cell in pattern["overlapping_cell"]:
+                        CellForProtectFromFlushing.append(cell)
                     WritePlacementInfo(pattern,ModuleHash)
-                    retLayeredlib[layer][PrefixIdx].append(pattern)
-                    stateChange = ChangeState(ModuleHash,"PlacementSkipped")
+                    stateChange = ChangeState(ModuleHash,"OnlyProvDrop")
                     StateChanges.append(stateChange) 
-    if isEmptyLayeredlib(retLayeredlib):
-        return StateChanges,[]
-    return StateChanges,retLayeredlib
+                else : 
+                    orientation = ""
+                    if "orientation" in pattern :
+                        orientation = pattern["orientation"]
+                    WritePMD(getMixerCoveringCell(pattern["ref_cell"],orientation),ModuleHash)
+                    stateChange = ChangeState(ModuleHash,"AtTopOfPlacedMixer")
+                    WritePlacementInfo(pattern,ModuleHash)
+                    StateChanges.append(stateChange) 
+            else: 
+                skip = True 
+                WritePlacementInfo(pattern,ModuleHash)
+                retHashlib[str(ModuleHash)] = pattern
+                stateChange = ChangeState(ModuleHash,"PlacementSkipped")
+                StateChanges.append(stateChange) 
+    if not retHashlib:
+        return StateChanges,{}
+    return StateChanges,retHashlib
+ 
+#def placelib(Layeredlib,ParentMixerHash): 
+#    global MaxLayerNum,CellForProtectFromFlushing,TimeStep
+#    retLayeredlib = [[[] for i in range(len(ModulePrefix))] for j in range(MaxLayerNum)]
+#    
+#    StateChanges = []
+#    skip = False
+#    for layer in range(MaxLayerNum): 
+#        modules = []
+#        for prefix in ModulePrefix: 
+#            PrefixIdx = getModulePrefixIdx(prefix)
+#            for pattern in Layeredlib[layer][PrefixIdx]:
+#                ModuleHash = pattern["hash"]
+#                if not skip and NoOverlapping(pattern):
+#                    # 試薬液滴
+#                    if getNode(ModuleHash).kind == "Reagent": 
+#                        NodeInfo[str(ModuleHash)].PlaceTimeStep = TimeStep+1
+#                        WritePMD(pattern["overlapping_cell"],ModuleHash*-1)
+#                        ### 試薬はフラッシュから守る必要あり
+#                        for cell in pattern["overlapping_cell"]:
+#                            CellForProtectFromFlushing.append(cell)
+#                        WritePlacementInfo(pattern,ModuleHash)
+#                        stateChange = ChangeState(ModuleHash,"OnlyProvDrop")
+#                        StateChanges.append(stateChange) 
+#                    else : 
+#                        orientation = ""
+#                        if "orientation" in pattern :
+#                            orientation = pattern["orientation"]
+#                        WritePMD(getMixerCoveringCell(pattern["ref_cell"],orientation),ModuleHash)
+#                        stateChange = ChangeState(ModuleHash,"AtTopOfPlacedMixer")
+#                        WritePlacementInfo(pattern,ModuleHash)
+#                        StateChanges.append(stateChange) 
+#                else: 
+#                    phash = getNode(ModuleHash).ParentHash
+#                    skip = True 
+#                    WritePlacementInfo(pattern,ModuleHash)
+#                    retLayeredlib[layer][PrefixIdx].append(pattern)
+#                    stateChange = ChangeState(ModuleHash,"PlacementSkipped")
+#                    StateChanges.append(stateChange) 
+#    if isEmptyLayeredlib(retLayeredlib):
+#        return StateChanges,[]
+#    return StateChanges,retLayeredlib
    
 from .utility import PMDImage
 ### lib内のパターンは評価の際に対応するハッシュ値をパッキングする．
@@ -1077,7 +1138,6 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
                 else : 
                     MoreStateChanges,RestOfLib =  placelib(Lib,ParentMixerHash)
                     if Lib == RestOfLib and not PlacedSkipped : 
-                        return -1
                         if ParentMixerHash not in RollBackHash  : 
                             MoreStateChanges = RollBack(ParentMixerHash)
                             for Change in MoreStateChanges: 
