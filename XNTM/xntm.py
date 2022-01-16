@@ -1186,7 +1186,6 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
                         for Change in MoreStateChanges: 
                             StateChanges.append(Change)
                         lib = getOptlib(ParentMixerHash)
-                        print(getNode(ParentMixerHash).name,lib)
                         if ParentMixerHash in RollBackHash:
                             if lib == RollBackHash[ParentMixerHash]: 
                                 return -1
