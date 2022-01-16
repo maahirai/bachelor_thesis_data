@@ -232,20 +232,6 @@ def viewPMD():
             print("{:6d}".format(CellState),end=" ")
         print("")
 
-def countMixerTimeStep(RootHash):
-    TimeSteps = []
-    q = []
-    q.append(RootHash)
-    while(q): 
-        hash = q.pop()
-        Node = getNode(hash)
-        print(Node.name,Node.MixedTimeStep)
-        TimeSteps.append(Node.MixedTimeStep)
-        for chash in Node.ChildrenHash: 
-            if getNode(chash).kind == "Mixer": 
-                q.append(chash)
-    return len(set(TimeSteps))
-
 from .utility import ProcessImage
 def CountFlushing(RootHash,savefile,ColorList,ImageOut=False): 
     global Vsize,Hsize,TimeStep
@@ -522,6 +508,8 @@ def CanPlace(ModuleHash,PatternCoveringCells,layer):
             cmphash = -1*PMDState[y][x] 
             if (cmphash in NGNode or cmphash in NGtoo )and cell in CellForProtectFromFlushing:
                 return -1000
+            elif cell in CellForProtectFromFlushing: 
+                return 1000000.0*(2**(layer+1))
         else: 
             cmphash = PMDState[y][x] 
             if cmphash in NGNode or cmphash in NGtoo :  
@@ -611,7 +599,7 @@ def Evallib(lib,PHash):
                     return 100000000000000001.0 
                 else : 
                     evalv += v
-     
+    
     #　ミキサー同士が離れて配置されているか評価
     for layer in range(MaxLayerNum):
         MixerPatterns = copy.deepcopy(Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")] )
@@ -644,12 +632,32 @@ def Evallib(lib,PHash):
     PMixerCoveringCell = getMixerCoveringCell(PMixer.RefCell,PMixer.orientation)
     dy = [0,1,0,-1]
     dx = [-1,0,1,0]
+
+    OpenDirection = [True for i in range(4)]
+    for cell in PMixerCoveringCell : 
+        y,x = cell
+        for way in range(4): 
+            ny,nx = y+dy[way],x+dx[way]
+            if [ny,nx] in PMixerCoveringCell: 
+                continue
+            if PMDState[ny][nx] != 0: 
+                OpenDirection[way] = False 
+    YametokeDirection = 4
+    for way in range(4):
+        if OpenDirection[way]: 
+            YametokeDirection -= 1
+
     # lib内の各パターンを評価する
     for layer in range(MaxLayerNum): 
+        is_empty = True
         for idx,prefix in enumerate(ModulePrefix): 
+            if is_empty and Layeredlib[layer][idx]: 
+                is_empty = False
+                diff = layer - YametokeDirection 
+                if diff > 0:
+                    evalv += diff*1000
             for pattern in Layeredlib[layer][idx]: 
                 ### libのlayerが大きいほどflushingの回数増える
-                evalv += 1000.0*(layer+1)
 
                 ### 各prov_cellの4方に同lib内patternのprov_cellが無いかチェックする
                 OkDirection = [False for i in range(4)]
@@ -665,7 +673,7 @@ def Evallib(lib,PHash):
                     CheckCellState = PMDState[checkY][checkX]
                     if CheckCellState != 0 and CheckCellState != PHash:
                         ### オーバーラップが起こるかも
-                        evalv += 1000.0/(layer+1)
+                        evalv *= 1000.0/(layer+1)
     return evalv
 
 def getOptlib(PHash): 
