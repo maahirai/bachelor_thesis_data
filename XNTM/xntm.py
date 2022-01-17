@@ -316,7 +316,7 @@ def mv(lib,ParentMixerHash):
     ParentRefcell = ParentMixer.RefCell 
     py,px = ParentRefcell
     diffY,diffX = py-2,px-2 
-    ### Acording to the diffRefCell, modify the cell
+    ### Acording to the diffRefCell, modify the cell location in lib
     Movedlib = copy.deepcopy(lib)
     is_ok = True
     for prefix in ModulePrefix:
@@ -517,7 +517,7 @@ def CanPlace(ModuleHash,PatternCoveringCells,layer):
                 ### 極力辞めたほうがいい
                 return 100000000000.0 * (layer+1)
             elif cmphash != 0 and cmphash != Module.ParentHash: 
-                cmpv = 10000.0/(layer+1)*getNode(ModuleHash).SubTreeDepth
+                cmpv = 10000.0/((layer+1)*getNode(ModuleHash).SubTreeDepth+1)
                 if eval < cmpv:
                     eval = cmpv
     return eval
@@ -616,19 +616,15 @@ def Evallib(lib,PHash):
                         y,x = cell
                         if diff_cy>0:
                             if y>pmixer_cy:
-                                #evalv += 1000/2**(abs(y-pmixer_cy))
                                 evalv += 1000/2**(abs(y-center_y))
                         elif diff_cy<0: 
                             if y<pmixer_cy:
-                                #evalv += 1000/2**(abs(y-pmixer_cy))
                                 evalv += 1000/2**(abs(y-center_y))
                         if diff_cx>0:
                             if x-pmixer_cx> 0: 
-                                #evalv += 1000/2**(abs(x-pmixer_cx))
                                 evalv += 1000/2**(abs(x-center_x))
                         elif diff_cx<0:
                             if pmixer_cx-x>0 : 
-                                #evalv += 1000/2**(abs(x-pmixer_cx))
                                 evalv += 1000/2**(abs(x-center_x))
                 v =  CanPlace(Module.hash,PatternCoveringCells,layer)
                 if v<0: 
@@ -709,7 +705,7 @@ def Evallib(lib,PHash):
                     if CheckCellState != 0 and CheckCellState != PHash:
                         ### オーバーラップが起こるかも
                         dist= abs(center_y-checkY)+abs(center_x-checkX)
-                        evalv += 1000.0/((layer+1)*dist)
+                        evalv += 1000.0/((layer+1)*dist+1)
     return evalv
 
 def getOptlib(PHash): 
@@ -1041,7 +1037,7 @@ def placelib(Hashlib,ParentMixerHash):
     return StateChanges,retHashlib
  
 from .utility import PMDImage
-### lib内のパターンは評価の際に対応するハッシュ値をパッキングする．
+### lib内のパターンは評価の際に対応するハッシュ値を割当する．(AssignModuleTolib)
 ### 使用するlibが決定した際に，refCellなどをNodeInfo に書き込む
 ### ParentMixer = str(mixer.size) + mixer.orientation
 CntRollBack = 0
@@ -1123,7 +1119,7 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
             if not Succeed: 
                 if ProcessOut:
                     print("十分な大きさのPMDを用意してください.",file=sys.stderr)
-                return -1
+                return -2
             else : 
                 FlushCount += 1
             ### 配置をスキップされていたミキサーや試薬の配置 
@@ -1169,7 +1165,7 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
         if code == -1 or CntRollBack > 100:
             if ProcessOut:
                 print("扱えない希釈木です．十分な大きさのPMDを用意しているか確認してください．",file=sys.stderr)
-            return -1
+            return -3
         elif  FlushCount>1000:
             return FlushCount 
 
