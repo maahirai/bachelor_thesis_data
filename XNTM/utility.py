@@ -219,9 +219,10 @@ def ProcessImage(filename,Vsize,Hsize,ColorList,TimeStep,FlushCount,PMD,Mixer,No
         draw.text(((fromx+tox)//2-9,(fromy+toy)//2-9),Node.name,font=font,fill="Black")
 
     S = "T={},F={}".format(TimeStep,FlushCount)
-    fontsize = 20
+    fontsize = 40
     font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
-    draw.text((2*sep*Hsize+2*Width-(fontsize+100),2*sep*Vsize+2*Width-(fontsize)),S,font=font,fill="Black")
+    draw.text((0,2*sep*Vsize+2*Width-(fontsize)),S,font=font,fill="Black")
+    #2*sep*Hsize+2*Width-(fontsize*10)
     create_directory("image")
     path = Path("image/","result"+filename+".png")
     img.save(path)
