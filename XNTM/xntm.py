@@ -581,7 +581,7 @@ def Evallib(lib,PHash):
         for ChildHash in Hashes: 
             if ChildHash not in CmpHashes: 
                 ### 失格
-                return 100000000000000001.0
+                return 100000000000000000001.0
     ### 以上のパートをくぐり抜けたなら: 配置順がok
    
     ### 親ミキサーの中心座標を求める.
@@ -608,6 +608,22 @@ def Evallib(lib,PHash):
                     RefCell = pattern["ref_cell"]
                     orientation = pattern["orientation"] if Module.size == 6 else ""
                     PatternCoveringCells = getMixerCoveringCell(RefCell,orientation)
+                    # 親ミキサーから見た配置方向がPMDの中心方向と同じなら，配置できない状況が生まれやすい．
+                    diff_cy,diff_cx = center_y-pmixer_cy,center_x-pmixer_cx 
+                    for cell in pattern["flushing_cell"]:
+                        y,x = cell
+                        if diff_cy>0:
+                            if y>pmixer_cy:
+                                evalv += 10000.0/(5**(abs(y-center_y)))
+                        elif diff_cy<0: 
+                            if y<pmixer_cy:
+                                evalv += 10000.0/(5**(abs(y-center_y)))
+                        if diff_cx>0:
+                            if x-pmixer_cx> 0: 
+                                evalv += 10000.0/(5**(abs(x-center_x)))
+                        elif diff_cx<0:
+                            if pmixer_cx-x>0 : 
+                                evalv += 10000.0/(5**(abs(x-center_x)))
                 else : 
                     PatternCoveringCells = copy.deepcopy(pattern["overlapping_cell"])
                     # 親ミキサーから見た配置方向がPMDの中心方向と同じなら，配置できない状況が生まれやすい．
@@ -616,20 +632,20 @@ def Evallib(lib,PHash):
                         y,x = cell
                         if diff_cy>0:
                             if y>pmixer_cy:
-                                evalv += 1000/2**(abs(y-center_y))
+                                evalv += 100000.0/5**(abs(y-center_y))
                         elif diff_cy<0: 
                             if y<pmixer_cy:
-                                evalv += 1000/2**(abs(y-center_y))
+                                evalv += 100000.0/5**(abs(y-center_y))
                         if diff_cx>0:
                             if x-pmixer_cx> 0: 
-                                evalv += 1000/2**(abs(x-center_x))
+                                evalv += 100000.0/5**(abs(x-center_x))
                         elif diff_cx<0:
                             if pmixer_cx-x>0 : 
-                                evalv += 1000/2**(abs(x-center_x))
+                                evalv += 100000.0/5**(abs(x-center_x))
                 v =  CanPlace(Module.hash,PatternCoveringCells,layer)
                 if v<0: 
                     ### 失格
-                    return 100000000000000001.0 
+                    return 100000000000000000001.0
                 else : 
                     evalv += v
 
@@ -684,11 +700,13 @@ def Evallib(lib,PHash):
     for layer in range(MaxLayerNum): 
         is_empty = True
         for idx,prefix in enumerate(ModulePrefix): 
+            if prefix == "r":
+                continue
             if is_empty and Layeredlib[layer][idx]: 
                 is_empty = False
                 diff = layer - YametokeDirection 
                 if diff > 0:
-                    evalv += diff*1000
+                    evalv += 100**diff
             for pattern in Layeredlib[layer][idx]: 
                 ### 各prov_cellの4方に同lib内patternのprov_cellが無いかチェックする
                 OkDirection = [False for i in range(4)]
@@ -711,7 +729,7 @@ def Evallib(lib,PHash):
 def getOptlib(PHash): 
     Optlib = {}
     Lib = getLib(PHash)
-    min_v = 100000000000000.0
+    min_v = 10000000000000000.0
     for lib in Lib: 
         Assignedlib = AssignModuleTolib(lib,PHash)
         for alib in Assignedlib: 
@@ -1051,7 +1069,7 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
     globalInit()
     
     ### placement of root mixer
-    RefCell = [(Vsize-1)//2,(Hsize-1)//2]
+    RefCell = [(Vsize-2)//2,(Hsize-2)//2]
     RootHash = PMDRootPlace(root,RefCell)
     NodeInfoInit(root) 
 
