@@ -83,7 +83,7 @@ ECV(1)，ECV(2)$<$ECV(3)，ECV(4)であるため，図~\ref{fig:Transform}での
         \ForAll {$\mathit{child}\gets \mathit{Tree.root.Children}$}
             \State $\mathit{ecv}=0$
             \If{$\mathit{child.isMixerNode}==\True$}
-                \State $\mathit{ecv}+=$MixerNum($child$)
+                \State $\mathit{ecv}+=$MixerNum($child$) \Comment{$\mathit{child}をルートとした部分木内のミキサーノード数$}
             \EndIf 
             \State Children.append(($\mathit{ecv,child}$))
         \EndFor 
