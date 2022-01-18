@@ -660,8 +660,11 @@ def Evallib(lib,PHash):
                     continue
                 FirstPattern = MixerPatterns[first]
                 SecondPattern = MixerPatterns[second]
+                hashOrder = getNode(PHash).ChildrenHash 
                 FHash = FirstPattern["hash"]
                 SHash = SecondPattern["hash"]
+                fidx = hashOrder.index(FHash)
+                sidx = hashOrder.index(SHash)
                 FEvalCell = copy.deepcopy(FirstPattern["overlapping_cell"]+FirstPattern["flushing_cell"])
                 SEvalCell = copy.deepcopy(SecondPattern["overlapping_cell"]+SecondPattern["flushing_cell"])  
                 MinDist = 100
@@ -673,10 +676,10 @@ def Evallib(lib,PHash):
                         if MinDist > tdist : 
                             MinDist = tdist 
                 ### 各ミキサーノードを根とする部分木が子孫ノードを持つほど，ミキサー間の距離が重要になってくる
-                expo = (((getNode(FHash).SubTreeHeight+getNode(SHash).SubTreeHeight))-(2**(MinDist)*SubTreeHeightMean))
+                expo = ((getNode(FHash).SubTreeHeight+getNode(SHash).SubTreeHeight))-(2**(MinDist))
                 if expo < 0: 
                     expo = 0
-                v = 1000*(expo)
+                v = 1000*(expo)/((fidx+1)*(sidx+1))
                 evalv += v
 
     PMixerCoveringCell = getMixerCoveringCell(PMixer.RefCell,PMixer.orientation)
