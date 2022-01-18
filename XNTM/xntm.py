@@ -13,7 +13,8 @@ class Module:
         self.ChildrenHash = []
         self.ProvNum = node.provide_vol
         self.kind = "Reagent" if self.ProvNum == self.size else "Mixer" 
-        self.SubTreeDepth = 0
+        self.SubTreeHeight = 0
+        self.depth = 0
         for c in node.children:
             self.ChildrenHash.append(c.hash)
 
@@ -31,7 +32,7 @@ class Module:
 ModulePrefix = ["6","4","r"]
 
 def globalInit(): 
-    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,SubTreeDepthMean,MixerNodeHash,RollBackHash
+    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,SubTreeHeightMean,MixerNodeHash,RollBackHash
     PMDState = [[0 for j in range(Hsize)] for i in range(Vsize)]
     NodeInfo = {}
     CntRollBack = 0
@@ -39,7 +40,7 @@ def globalInit():
     CellForFlushing,CellForProtectFromFlushing = [],[]
     PlacementSkippedLib = []
     MixerNodeHash = []
-    SubTreeDepthMean = 0
+    SubTreeHeightMean = 0
     RollBackHash={}
 
 def viewAllModule(RootHash): 
@@ -508,7 +509,7 @@ def CanPlace(ModuleHash,PatternCoveringCells,layer):
             if (cmphash in NGNode or cmphash in NGtoo )and cell in CellForProtectFromFlushing:
                 return -1000
             elif cell in CellForProtectFromFlushing: 
-                cmpv = 1000000.0*(2**(layer+1))*getNode(ModuleHash).SubTreeDepth
+                cmpv = 1000000.0*(2**(layer+1))*getNode(ModuleHash).SubTreeHeight
                 if eval < cmpv:
                     eval = cmpv
         else: 
@@ -517,13 +518,13 @@ def CanPlace(ModuleHash,PatternCoveringCells,layer):
                 ### 極力辞めたほうがいい
                 return 100000000000.0 * (layer+1)
             elif cmphash != 0 and cmphash != Module.ParentHash: 
-                cmpv = 10000.0/((layer+1)*getNode(ModuleHash).SubTreeDepth+1)
+                cmpv = 10000.0/((layer+1)*getNode(ModuleHash).SubTreeHeight+1)
                 if eval < cmpv:
                     eval = cmpv
     return eval
 
 
-def getAllCheckCells(CheckCells,ExpandDirection,SubTreeDepth): 
+def getAllCheckCells(CheckCells,ExpandDirection,SubTreeHeight): 
     global Hsize,Vsize
     ret = CheckCells
     YMin,YMax  = 10000,0
@@ -545,14 +546,14 @@ def getAllCheckCells(CheckCells,ExpandDirection,SubTreeDepth):
         if direction: 
             if dx[idx] != 0:
                 if dx[idx] > 0:
-                    XMax += SubTreeDepth 
+                    XMax += SubTreeHeight 
                 else : 
-                    XMin -= SubTreeDepth
+                    XMin -= SubTreeHeight
             else :
                 if dy[idx] > 0: 
-                    YMax += SubTreeDepth 
+                    YMax += SubTreeHeight 
                 else : 
-                    YMin -= SubTreeDepth 
+                    YMin -= SubTreeHeight 
     for y in range(YMin,YMax+1): 
         for x in range(XMin,XMax+1): 
             if 0 <= y and y < Vsize and 0 <= x and x < Hsize :
@@ -562,7 +563,7 @@ def getAllCheckCells(CheckCells,ExpandDirection,SubTreeDepth):
     return ret
 
 def Evallib(lib,PHash):
-    global PMDState,MaxLayerNum,CellForProtectFromFlushing,SubTreeDepthMean,Vsize,Hsize
+    global PMDState,MaxLayerNum,CellForProtectFromFlushing,SubTreeHeightMean,Vsize,Hsize
     PMixer = getNode(PHash)
     Layeredlib = getLayeredlib(lib)
 
@@ -672,7 +673,7 @@ def Evallib(lib,PHash):
                         if MinDist > tdist : 
                             MinDist = tdist 
                 ### 各ミキサーノードを根とする部分木が子孫ノードを持つほど，ミキサー間の距離が重要になってくる
-                expo = (((getNode(FHash).SubTreeDepth+getNode(SHash).SubTreeDepth))-(2**(MinDist)*SubTreeDepthMean))
+                expo = (((getNode(FHash).SubTreeHeight+getNode(SHash).SubTreeHeight))-(2**(MinDist)*SubTreeHeightMean))
                 if expo < 0: 
                     expo = 0
                 v = 1000*(expo)
@@ -702,12 +703,16 @@ def Evallib(lib,PHash):
         for idx,prefix in enumerate(ModulePrefix): 
             if prefix == "r":
                 continue
-            if is_empty and Layeredlib[layer][idx]: 
-                is_empty = False
+            for pattern in Layeredlib[layer][idx]: 
+                hash = pattern["hash"]
                 diff = layer - YametokeDirection 
                 if diff > 0:
+                    ### 相加相乗平均?
+                    add = (10000/2**((getNode(hash).depth)*(getNode(hash).SubTreeHeight)))**diff
+                    if add > 10000000000000000.0: 
+                        add = 1000000000000000 
+                    evalv += add
                     evalv += 100**diff
-            for pattern in Layeredlib[layer][idx]: 
                 ### 各prov_cellの4方に同lib内patternのprov_cellが無いかチェックする
                 OkDirection = [False for i in range(4)]
                 OnParentCell = copy.deepcopy(pattern["overlapping_cell"]+pattern["flushing_cell"])
@@ -716,7 +721,7 @@ def Evallib(lib,PHash):
                         CheckCell = [y+dy[direction],x+dx[direction]]
                         if CheckCell not in PMixerCoveringCell: 
                             OkDirection[direction] = True 
-                AllCheckCells = getAllCheckCells(PMixerCoveringCell,OkDirection,getNode(pattern["hash"]).SubTreeDepth)
+                AllCheckCells = getAllCheckCells(PMixerCoveringCell,OkDirection,getNode(pattern["hash"]).SubTreeHeight)
                 for CheckCell in AllCheckCells: 
                     checkY,checkX = CheckCell
                     CheckCellState = PMDState[checkY][checkX]
@@ -747,23 +752,24 @@ def getOptlib(PHash):
 PMDState = []
 NodeInfo = {}
 MixerNodeHash = []
-SubTreeDepthMean = 0
+SubTreeHeightMean = 0
 def NodeInfoInit(root): 
-    global NodeInfo,MixerNodeHash,SubTreeDepthMean
+    global NodeInfo,MixerNodeHash,SubTreeHeightMean
     q = []
-    q.append(root)
+    q.append([root,0])
     leaves = []
     d = []
     while(q): 
-        e = q.pop(0)
+        e,depth = q.pop(0)
         if not e.children: 
             leaves.append(e.hash)
         for child in e.children:
             module = Module(child,e.hash)
             NodeInfo[str(module.hash)] = module 
+            NodeInfo[str(module.hash)].depth = depth+1
             if child.size != child.provide_vol:
                 MixerNodeHash.append(module.hash)
-            q.append(child)
+            q.append([child,depth+1])
     q = []
     for leaf in leaves: 
         e = [leaf,0]
@@ -772,17 +778,17 @@ def NodeInfoInit(root):
         e = q.pop(0)
         hash,height = e 
         Node = getNode(hash)
-        if  Node.SubTreeDepth < height: 
-            NodeInfo[str(hash)].SubTreeDepth = height 
+        if  Node.SubTreeHeight < height: 
+            NodeInfo[str(hash)].SubTreeHeight = height 
         PHash = Node.ParentHash
         if PHash != 0 : 
             q.append([PHash,height+1])
     for mhash in MixerNodeHash: 
-        d.append(NodeInfo[str(mhash)].SubTreeDepth)
+        d.append(NodeInfo[str(mhash)].SubTreeHeight)
     Sum = 0
     for depth in set(d): 
         Sum += depth 
-    SubTreeDepthMean = Sum/len(set(d))
+    SubTreeHeightMean = Sum/len(set(d))
     return 
           
 CellForFlushing = []
