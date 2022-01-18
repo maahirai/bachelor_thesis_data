@@ -77,10 +77,27 @@ ECV(1)，ECV(2)$<$ECV(3)，ECV(4)であるため，図~\ref{fig:Transform}での
  \caption{希釈木の変形操作}\label{alg:transform}
  \begin{algorithmic}[1]
      \Require $\mathit{Tree}$：2$\times$2ミキサーノードと2$\times$3ミキサーノード，試薬液滴ノードを含む希釈木 
-     \Function getMixerNum()
-     \State $\mathit{q}\gets$list()
 
-      \Return $\mathit{TransformedTree}$
+     \Function {TransformTree}{$\mathit{Tree.root}$}
+        \State $\mathit{Children}$ = array()
+        \ForAll {$\mathit{child}\gets \mathit{Tree.root.Children}$}
+            \State $\mathit{ecv}=0$
+            \If{$\mathit{child.isMixerNode}==\True$}
+                \State $\mathit{ecv}+=$MixerNum($child$)
+            \EndIf 
+            \State Children.append(($\mathit{ecv,child}$))
+        \EndFor 
+        \State $\mathit{SortedByECV} \gets $sorted($Children,reverse=$\True)
+        \State $\mathit{res}\gets$array()
+        \ForAll {$\mathit{ecv,child}\gets \mathit{SortedByECV}$}
+            \State $\mathit{SubTree}\gets $\Call {TransformTree}{$\mathit{child}$}
+            \State $\mathit{res}$.append($\mathit{SubTree}$)
+        \EndFor 
+        \State $\mathit{root.Children}\gets \mathit{res}$ 
+
+        \Return $\mathit{RootNode}$
+    \EndFunction 
+
  \end{algorithmic}
 \end{algorithm}
 次に，2つ目の処理である，Algorithm~\ref{alg:all}の\ref{xntm_pseudo}行目の，PMD上での液滴移動のない混合手順の生成において行う処理の説明を行う．
