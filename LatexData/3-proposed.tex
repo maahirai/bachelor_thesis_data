@@ -42,36 +42,10 @@ Algorithm~\ref{alg:all}に本論文の提案手法のアルゴリズム全体の
 ミキサーノード$N$の予測混雑度の値をECV($N$)，ミキサーノード$N$をルートとする部分木内のミキサーノード数をMixerNum($\mathit{N}$)とする．
 図~\ref{fig:Transform}において，ECV(1) = MixerNum(1) = 2，ECV(2) = MixerNum(2) = 2，ECV(3) = MixerNum(3) = 3，ECV(4) = MixerNum(4) = 3である．
 ECV(1)，ECV(2)$<$ECV(3)，ECV(4)であるため，図~\ref{fig:Transform}での希釈木の変形においては，M1，M2をルートとした部分木とM3，M4をルートとした部分木の位置が入れ替えられている．
+希釈木の変形操作のアルゴリズムの擬似コードは，Algorithm~\ref{alg:transform}に示す．
 
-%次に，この変形操作の目的を説明する．
-あるミキサーの子ミキサーや子試薬液滴をPMD上へ配置する際に，その配置先のセルにはすでに試薬液滴やミキサー，中間液滴が配置されている場合があり，それをオーバーラップと呼ぶ．
-オーバーラップが発生した場合，配置しようとしていたミキサーや試薬液滴のPMD上への配置を行うタイミングを変更する操作や，以降のタイムステップでの混合に使われないPMD上の中間液滴を水で洗い流して，他の子ミキサーや子試薬を配置するためのセルを空ける操作（フラッシング）が必要になる．
-フラッシングの回数が増えるほど，試薬合成で必要になる試薬量は増える．
 
-予測混雑度の定義からも分かる通り，高い予測混雑度を持つミキサーノードは子孫ノードを多く持つ．
-したがって，高い予測混雑度を持つミキサーノードをルートとする部分木内のミキサーノードは，多くのオーバーラップを発生させやすい．
-また，2$\times$2ミキサーノードは最大4個子ノードを持つのに対して，2$\times$3ミキサーノードは最大6個の子ノードを持つ．
-したがって，2$\times$3ミキサーノードは，2$\times$2ミキサーノードよりも，高い予測混雑度を持ちやすく，多くのオーバーラップを発生させやすい．
 
-混合手順の生成処理では，希釈木のルートのミキサーノードからBFS順で，PMD上での配置先を決めていく．
-したがって，予測混雑度をキー値にしたエッジの降順でのソートを行うことで，予測混雑度が高いミキサーノードほど，BFS順において早くPMDへの配置先の決定を行うことができるようになる．
-この仕組みにより，予測混雑度の高いミキサーノードほど，PMD上で空いたセルが多く，配置方法の自由度が高い，タイムステップが小さい時点での配置が行える．
-これにより，オーバーラップに伴うフラッシングの回数を減らすことができる．
-
-\begin{figure}[tbp]
- \centering\includegraphics[scale=0.5]{img/Transform.pdf}
- \caption{希釈木の変形操作}\label{fig:Transform}
-\end{figure}
-
-\begin{figure}[tbp]
- \centering\includegraphics[scale=0.5]{img/result.pdf}
-    \caption{図~\ref{fig:Transform}（b）の希釈木に対するPMD上での液滴移動のない混合手順の生成結果}\label{fig:result}
-\end{figure}
-
-\begin{figure}[tbp]
- \centering\includegraphics[scale=0.41]{img/OutPut.pdf}
- \caption{提案手法の入出力}\label{fig:inputoutput}
-\end{figure}
 
 \begin{algorithm}[tbp]
  \caption{希釈木の変形操作}\label{alg:transform}
@@ -100,6 +74,39 @@ ECV(1)，ECV(2)$<$ECV(3)，ECV(4)であるため，図~\ref{fig:Transform}での
 
  \end{algorithmic}
 \end{algorithm}
+\newpage
+%次に，この変形操作の目的を説明する．
+あるミキサーの子ミキサーや子試薬液滴をPMD上へ配置する際に，その配置先のセルにはすでに試薬液滴やミキサー，中間液滴が配置されている場合があり，それをオーバーラップと呼ぶ．
+オーバーラップが発生した場合，配置しようとしていたミキサーや試薬液滴のPMD上への配置を行うタイミングを変更する操作や，以降のタイムステップでの混合に使われないPMD上の中間液滴を水で洗い流して，他の子ミキサーや子試薬を配置するためのセルを空ける操作（フラッシング）が必要になる．
+フラッシングの回数が増えるほど，試薬合成で必要になる試薬量は増える．
+
+予測混雑度の定義からも分かる通り，高い予測混雑度を持つミキサーノードは子孫ノードを多く持つ．
+したがって，高い予測混雑度を持つミキサーノードをルートとする部分木内のミキサーノードは，多くのオーバーラップを発生させやすい．
+また，2$\times$2ミキサーノードは最大4個子ノードを持つのに対して，2$\times$3ミキサーノードは最大6個の子ノードを持つ．
+したがって，2$\times$3ミキサーノードは，2$\times$2ミキサーノードよりも，高い予測混雑度を持ちやすく，多くのオーバーラップを発生させやすい．
+
+混合手順の生成処理では，希釈木のルートのミキサーノードからBFS順で，PMD上での配置先を決めていく．
+したがって，予測混雑度をキー値にしたエッジの降順でのソートを行うことで，予測混雑度が高いミキサーノードほど，BFS順において早くPMDへの配置先の決定を行うことができるようになる．
+この仕組みにより，予測混雑度の高いミキサーノードほど，PMD上で空いたセルが多く，配置方法の自由度が高い，タイムステップが小さい時点での配置が行える．
+これにより，オーバーラップの発生回数を減らすことができる．
+また，それに伴い，フラッシングの回数も減らすことができる．
+
+\begin{figure}[tbp]
+ \centering\includegraphics[scale=0.5]{img/Transform.pdf}
+ \caption{希釈木の変形操作}\label{fig:Transform}
+\end{figure}
+
+\begin{figure}[tbp]
+ \centering\includegraphics[scale=0.5]{img/result.pdf}
+    \caption{図~\ref{fig:Transform}（b）の希釈木に対するPMD上での液滴移動のない混合手順の生成結果}\label{fig:result}
+\end{figure}
+
+
+\section{\mout{PMD上でのミキサーの混合手順の生成アルゴリズム}}
+\begin{figure}[tbp]
+ \centering\includegraphics[scale=0.9]{img/process.pdf}
+ \caption{液滴移動のない混合手順の生成過程}\label{fig:process}
+\end{figure}
 次に，2つ目の処理である，Algorithm~\ref{alg:all}の\ref{xntm_pseudo}行目の，PMD上での液滴移動のない混合手順の生成において行う処理の説明を行う．
 図~\ref{fig:Transform}（b）の希釈木と，使用するPMDのサイズを入力とし，図~\ref{fig:result}（a）から（e）のPMD上での液滴移動のない混合手順を出力する．
 図~\ref{fig:result}（a）から（e）の左下に書かれたTという値は混合手順が実行されるタイムステップ，Fという値はそのタイムステップに至るまでに行われたフラッシングの数を表す．
@@ -108,14 +115,10 @@ ECV(1)，ECV(2)$<$ECV(3)，ECV(4)であるため，図~\ref{fig:Transform}での
 
 
 
-\begin{figure}[tbp]
- \centering\includegraphics[scale=0.9]{img/process.pdf}
- \caption{液滴移動のない混合手順の生成過程}\label{fig:process}
-\end{figure}
+
 
 %\newpage
 %\section{ライブラリを用いたモジュールの配置{アルゴリズム}}
-\section{\mout{PMD上でのミキサーの混合手順の生成アルゴリズム}}
 \begin{algorithm}[tbp]
  \caption{液滴移動のない混合手順の生成アルゴリズムの擬似コード}\label{alg:prop}
  \begin{algorithmic}[1]
