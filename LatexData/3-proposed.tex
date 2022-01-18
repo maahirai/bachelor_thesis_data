@@ -9,8 +9,9 @@
 また，本論文の提案手法の出力は，図~\ref{fig:inputoutput}の（b）から（e）の，入力希釈木に対応したPMD上でのミキサーの混合手順である．
 図~\ref{fig:inputoutput}の（b）から（e）において，同じ図内のミキサーは，混合されるタイミング（タイムステップ）が同じミキサー同士である．
 
-図~\ref{fig:inputoutput}の（b）から（e）の混合手順において，図~\ref{fig:inputoutput}（a）の希釈木内で子ノードに対応する試薬液滴やミキサーは，親ミキサーの配置されるセルに提供液滴を残す．
-親ミキサーは，子ミキサーや子試薬が残した液滴を移動させずに配置された場所で混合する．
+希釈木内のあるノードの親ミキサーノード，子ミキサーノード，子試薬液滴ノードに対応した，PMD上に配置されるミキサーや試薬液滴のことを，親ミキサー，子ミキサー，子試薬液滴と呼ぶ．
+図~\ref{fig:inputoutput}の（b）から（e）の混合手順において，図~\ref{fig:inputoutput}（a）の希釈木内で子試薬液滴や子ミキサーは，親ミキサーの配置されるセルに提供液滴を残す．
+親ミキサーは，それらの提供液滴を移動させずに配置された場所で混合する．
 
 \begin{figure}[tbp]
  \centering\includegraphics[scale=0.41]{img/OutPut.pdf}
@@ -61,7 +62,7 @@ ECV(1)，ECV(2)$<$ECV(3)，ECV(4)であるため，図~\ref{fig:Transform}での
             \EndIf 
             \State Children.append(($\mathit{ecv,child}$))
         \EndFor 
-        \State $\mathit{SortedByECV} \gets $sorted($Children,reverse=$\True)
+        \State $\mathit{SortedByECV} \gets $sorted($Children,reverse=$\True)\Comment{$\mathit{ecv}$をキー値に降順でソート}
         \State $\mathit{res}\gets$array()
         \ForAll {$\mathit{ecv,child}\gets \mathit{SortedByECV}$}
             \State $\mathit{SubTree}\gets $\Call {TransformTree}{$\mathit{child}$}
@@ -74,94 +75,121 @@ ECV(1)，ECV(2)$<$ECV(3)，ECV(4)であるため，図~\ref{fig:Transform}での
 
  \end{algorithmic}
 \end{algorithm}
-\newpage
 %次に，この変形操作の目的を説明する．
-あるミキサーの子ミキサーや子試薬液滴をPMD上へ配置する際に，その配置先のセルにはすでに試薬液滴やミキサー，中間液滴が配置されている場合があり，それをオーバーラップと呼ぶ．
-オーバーラップが発生した場合，配置しようとしていたミキサーや試薬液滴のPMD上への配置を行うタイミングを変更する操作や，以降のタイムステップでの混合に使われないPMD上の中間液滴を水で洗い流して，他の子ミキサーや子試薬を配置するためのセルを空ける操作（フラッシング）が必要になる．
+
+希釈木の変形操作とともに，本論文の提案手法における中心的な処理である，PMD上での液滴の移動のない混合手順の生成処理中では，親ミキサーの配置予定セルの一部が重なるようにして，子ミキサーや子試薬液滴が次々とPMD上に配置される．
+この子ミキサーや子試薬液滴をPMD上へ配置する際に，その配置先のセルにはすでに試薬液滴やミキサー，中間液滴が配置されていることがある．この状態のことをオーバーラップと呼ぶ．
+オーバーラップが発生した場合，配置しようとしていたミキサーや試薬液滴のPMD上への配置をスキップしたり，以降のタイムステップでの混合に使われないPMD上の中間液滴を水で洗い流して，他の子ミキサーや子試薬液滴を配置するためのセルを空ける操作（フラッシング）が必要になる．
 フラッシングの回数が増えるほど，試薬合成で必要になる試薬量は増える．
 
 予測混雑度の定義からも分かる通り，高い予測混雑度を持つミキサーノードは子孫ノードを多く持つ．
-したがって，高い予測混雑度を持つミキサーノードをルートとする部分木内のミキサーノードは，多くのオーバーラップを発生させやすい．
+したがって，高い予測混雑度を持つミキサーノードをルートとする部分木内のミキサーノードは，PMD上での配置先セルの近くのセルに，多くのミキサーや試薬液滴が配置されることになるため，多くのオーバーラップを発生させやすい．
 また，2$\times$2ミキサーノードは最大4個子ノードを持つのに対して，2$\times$3ミキサーノードは最大6個の子ノードを持つ．
 したがって，2$\times$3ミキサーノードは，2$\times$2ミキサーノードよりも，高い予測混雑度を持ちやすく，多くのオーバーラップを発生させやすい．
 
+これらを原因とするオーバーラップの発生回数を減らすために行われるのが希釈木の変形操作である．
 混合手順の生成処理では，希釈木のルートのミキサーノードからBFS順で，PMD上での配置先を決めていく．
-したがって，予測混雑度をキー値にしたエッジの降順でのソートを行うことで，予測混雑度が高いミキサーノードほど，BFS順において早くPMDへの配置先の決定を行うことができるようになる．
-この仕組みにより，予測混雑度の高いミキサーノードほど，PMD上で空いたセルが多く，配置方法の自由度が高い，タイムステップが小さい時点での配置が行える．
-これにより，オーバーラップの発生回数を減らすことができる．
-また，それに伴い，フラッシングの回数も減らすことができる．
+予測混雑度をキー値にした降順でのソートを行えば，予測混雑度が高いミキサーノードほど，BFS順において早くPMD上への配置先の決定を行うようにすることができる.
+この仕組みにより，予測混雑度の高いミキサーノードほど，PMD上で空いたセルが多く，配置方法の自由度が高い，小さいタイムステップでの配置が行える．
+これにより，オーバーラップを起こしやすい配置優先度の高い部分木内のミキサーも，PMD上で空いたセルが多い，小さいタイムステップでの配置が行えるようになり，オーバーラップが起こりにくくなる．
+オーバーラップが起こりにくくなれば，フラッシングの回数も減らすことができる．
 
 \begin{figure}[tbp]
  \centering\includegraphics[scale=0.5]{img/Transform.pdf}
  \caption{希釈木の変形操作}\label{fig:Transform}
 \end{figure}
 
+
+\section{\mout{PMD上での液滴移動のない混合手順の生成アルゴリズム}}
+次に，2つ目の処理である，Algorithm~\ref{alg:all}の\ref{xntm_pseudo}行目の，PMD上での液滴移動のない混合手順の生成の説明を行う．
+図~\ref{fig:Transform}（b）の希釈木と，使用するPMDのサイズを入力とし，図~\ref{fig:result}（a）から（e）のPMD上での液滴移動のない混合手順を出力する．
+図~\ref{fig:result}（a）から（e）の各セルに配置された，d$n$はミキサーM$n$によって生成された混合液滴（d3ならば，M3によって生成された混合液滴），R$n$は$n$番目の試薬液滴を表す．
+図~\ref{fig:result}（a）から（e）の左下に書かれたTという値は混合手順が実行されるタイムステップ，Fという値はそのタイムステップに至るまでに行われたフラッシングの回数を表す．
+
 \begin{figure}[tbp]
  \centering\includegraphics[scale=0.5]{img/result.pdf}
     \caption{図~\ref{fig:Transform}（b）の希釈木に対するPMD上での液滴移動のない混合手順の生成結果}\label{fig:result}
 \end{figure}
 
-
-\section{\mout{PMD上でのミキサーの混合手順の生成アルゴリズム}}
-\begin{figure}[tbp]
- \centering\includegraphics[scale=0.9]{img/process.pdf}
- \caption{液滴移動のない混合手順の生成過程}\label{fig:process}
-\end{figure}
-次に，2つ目の処理である，Algorithm~\ref{alg:all}の\ref{xntm_pseudo}行目の，PMD上での液滴移動のない混合手順の生成において行う処理の説明を行う．
-図~\ref{fig:Transform}（b）の希釈木と，使用するPMDのサイズを入力とし，図~\ref{fig:result}（a）から（e）のPMD上での液滴移動のない混合手順を出力する．
-図~\ref{fig:result}（a）から（e）の左下に書かれたTという値は混合手順が実行されるタイムステップ，Fという値はそのタイムステップに至るまでに行われたフラッシングの数を表す．
-
-図~\ref{fig:process}は，図~\ref{fig:Transform}（b）の希釈木を入力とした，7$\times$7サイズのPMD上での液滴移動のない混合手順の生成過程を示す．
-
-
-
-
-
-%\newpage
-%\section{ライブラリを用いたモジュールの配置{アルゴリズム}}
+Algorithum~\ref{alg:genMixOrder}に液滴移動のないPMD上での混合手順の生成アルゴリズムの擬似コードを示した．
 \begin{algorithm}[tbp]
- \caption{液滴移動のない混合手順の生成アルゴリズムの擬似コード}\label{alg:prop}
+ \caption{液滴移動のないPMD上での混合手順の生成アルゴリズムの擬似コード}\label{alg:genMixOrder}
  \begin{algorithmic}[1]
      \Require $\mathit{Tree}$：2$\times$2ミキサーノードと2$\times$3ミキサーノード，試薬液滴ノードを含む希釈木 
-     \Require $\mathit{PMDSize}$：$\mathit{Tree}$を配置するのに十分なPMDの大きさ
-     \State $\mathit{TransformedTree} \gets$ transform($Tree$) \Comment{希釈木の変形}\label{transform_pseudo} \State $\mathit{ret} \gets $List() \Comment{混合手順を記録するためのリスト}\label{xntm_pseudo}
-     \State $\mathit{OnPMD}$ $\gets$ List() \Comment{PMD上に配置されているミキサーの管理をするためのリスト}\label{xntm}
-     \State $\mathit{Process,TimeForFlushing}\,\gets $  PlaceOnPMD($\mathit{TransformedTree.RootMixer,PMD}$)
-     \State $\mathit{ret}$.append($\mathit{Process}$)
-     \State $\mathit{OnPMD}$.append($TransformedTree.RootMixer$)
-    
+     \Require $\mathit{PMDSize}$：使用するPMDのサイズ
+     \State $\mathit{TransformedTree} \gets$\Call{TransformTree}{$\mathit{Tree.RootMixer}$} \Comment{希釈木の変形} 
+     \State $\mathit{PMD}\,\gets $  PMDInit($\mathit{PMDSize}$)
+     \State $\mathit{PMD}\,\gets $  PlaceOnPMD($\mathit{TransformedTree.RootMixer,PMD}$)
+     \State $\mathit{ret} \gets $array() \Comment{混合手順を記録するための配列}
+
     \State \While{$TransformedTree.RootMixer.state \neq Mixed $ }
-        \State$\mathit{mixer} \gets  \mathit{OnPMD}$.pop(0)
+        \ForAll{$\mathit{mixer} \gets \mathit{PMD.MixerOnPMD}$} 
         \State $\mathit{AllChildrenPlaced}\gets\mathit{True}$
         \State $\mathit{AllChildrenMixerMixed}\gets\mathit{True}$
+        \State $\mathit{ShouldFlush}\gets\mathit{True}$
         \ForAll{$\mathit{child} \gets \mathit{mixer.Children}$} 
-            \If {$\mathit{child}\:\mathit{\mathbf{not}}\,\mathit{\mathbf{in}}\:\mathit{OnPMD}$}
+            \If {$\mathit{child}\:\mathit{\mathbf{not}}\,\mathit{\mathbf{in}}\:\mathit{PMD.OnPMD}\:and\:$CanPlace($\mathit{child,PMD}$)}
                 \State$\mathit{AllChildrenPlaced \gets False}$
-                \State $\mathit{TimeForFlushing}\, \gets$  isTimeForFlushing($\mathit{child,PMD}$) 
-                \If{$\mathit{TimeForFlushing}$}
-                    \State $\mathit{Process}\gets$Flush($\mathit{PMD,OnPMD}$)
-                    \State $\mathit{ret}$.append($\mathit{Process}$)
-                \EndIf
-                \State $\mathit{Process}\, \gets$  PlaceOnPMD($\mathit{child,PMD}$)
-                \State $\mathit{ret}$.append($\mathit{Process}$)
-                \State $\mathit{OnPMD}$.append($\mathit{child}$) 
+                \State $\mathit{PMD}\, \gets$  PlaceOnPMD($\mathit{child,PMD}$) \Comment{子ミキサー，子試薬液滴の配置}
+                \State $\mathit{ShouldFlush}\gets\mathit{False}$
             \EndIf 
             \If {$\mathit{child.kind}==\mathit{Mixer} \: \mathit{\mathbf{and}}\: \mathit{child.state}\neq\mathit{Mixed}$}
                 \State $\mathit{AllChildrenMixerMixed}\gets\mathit{False}$
             \EndIf 
         \EndFor 
-        \If{$\mathit{AllChildrenPlaced}\,\mathit{\mathbf{and}}\, \mathit{AllChildrenMixerMixed}$}
-            \State$\mathit{Process}\gets$Mix($\mathit{mixer,PMD}$)
-            \State $\mathit{ret}$.append($\mathit{Process}$)
+         \If{$\mathit{AllChildrenPlaced}\,\mathit{\mathbf{and}}\, \mathit{AllChildrenMixerMixed}$}
+            \State$\mathit{PMD}\gets$Mix($\mathit{mixer,PMD}$)\Comment{ミキサーの混合}
             \State$\mathit{mixer.state} \gets \mathit{Mixed}$ 
+            \State$\mathit{ret} $.append($\mathit{mixer}$) 
+            \State $\mathit{ShouldFlush}\gets\mathit{False}$
         \EndIf
-        \State$\mathit{OnPMD}$.append($\mathit{mixer}$)
+        \EndFor 
+\If{$\mathit{TimeForFlushing}$}
+                    \State $\mathit{PMD}\gets$Flush($\mathit{PMD}$)\Comment{フラッシング}
+                \EndIf
     \EndWhile 
 
      \Return $\mathit{ret}$
  \end{algorithmic}
 \end{algorithm}
 
+\newpage
+図~\ref{fig:result}の混合手順の生成アルゴリズムで行われる処理は，主に以下の3つである．
+\begin{itembox}[l]{混合手順を生成する過程で行われる処理}
+\begin{enumerate}
+    \item 配置（PMD上に配置されているミキサーの子ミキサーや子試薬液滴のPMD上への配置）\label{place}
+    \item 混合（PMD上に配置されているミキサーの，混合の実行）\label{mix}
+    \item フラッシング（フラッシングによる，PMD上の空いたセルの確保）\label{flush}
+    %\item 延期された配置（手順~\ref{place}で配置できなかったミキサーや子試薬液滴のPMD上への配置）\label{skipped}
+\end{enumerate}
+\end{itembox}
+
+混合手順の生成アルゴリズムにおいて，基本となる処理は処理~\ref{place}（配置）と処理~\ref{mix}（混合）である．
+混合手順の生成アルゴリズムは，処理~\ref{place}（配置）と処理~\ref{mix}（混合）を繰り返す．
+処理~\ref{place}（配置）と処理~\ref{mix}（混合）が行えなくなったら，処理~\ref{flush}（フラッシング）を行う．
+その後，再び処理~\ref{place}（配置）と処理~\ref{mix}（混合）を行う．
+これらの処理の繰り返しを，ルートのミキサーノードであるM0の混合が行われるまで続ける．
+
+\newpage
+
+図~\ref{fig:process}は，図~\ref{fig:Transform}（b）の希釈木を入力として，7$\times$7サイズのPMD上で図~\ref{fig:result}の液滴移動のない混合手順を生成する過程を表している．
+混合手順の生成は，図~\ref{fig:process}（a）のようにPMD中央部にルートのミキサー（M0）を配置して開始される（処理~\ref{place})．
+その後，図~\ref{fig:process}（b），（c）のように，子ミキサーや子試薬液滴が親ミキサーと一部のセルを共有するように配置される（処理~\ref{place})．
+この際，オーバラップしている子ミキサーや子試薬液滴は配置を先延ばしする． 配置を先延ばししたミキサーや試薬液滴以外の全てのミキサーや試薬液滴を配置し終えると，図~\ref{fig:process}（d）のように，ミキサーの混合を行う．（処理~\ref{mix}） 
+これ以上処理~\ref{place}，処理~\ref{mix}が行えないので，図~\ref{fig:process}（e）のように，処理~\ref{flush}のフラッシングと配置をスキップされていたミキサーや試薬液滴の配置（M1，M8，M10）を行う．
+図~\ref{fig:process}（f）では，M6上に子ミキサーのM2を，M10に子試薬（R1，R2，R3，R4）を配置する．
+図~\ref{fig:process}（g）では，M6，M7，M8，M9，図~\ref{fig:process}（h）では，M4でミキサーでの液滴の混合を行っている．
+その後，図~\ref{fig:process}（i）でフラッシングをした後に，図~\ref{fig:process}（j）では配置を先延ばししていた試薬液滴のM2，M3上への配置と，M2，M3での液滴の混合を行っている．
+図~\ref{fig:process}（k）では，ルートミキサーであるM0での液滴の混合を行うことができ，試薬合成に成功した．
+
+ミキサーでの試薬の混合を行っている，図~\ref{fig:process}（d），（g），（h），（j），（k）が，本論文の提案手法である，2$\times$3ミキサーを用いたPMD上での液滴移動のない混合手順の生成の出力である．
+\begin{figure}[tbp]
+ \centering\includegraphics[scale=0.9]{img/process.pdf}
+ \caption{液滴移動のない混合手順の生成過程}\label{fig:process}
+\end{figure}
+
+
+%\section{ライブラリを用いたモジュールの配置{アルゴリズム}}
 
 %ライブラリを用いたモジュールの配置方法を例，図や擬似コードを用いながら説明する．
 
