@@ -1,7 +1,7 @@
 \chapter{{2×3ミキサーを用いた液滴移動の\bout{ない}混合手順の生成}}
 \label{proposed}
 \section{アルゴリズムの概要}
-\ref{proposed}~章では，本論文の提案手法である2$\times$3ミキサーを用いた液滴移動の無いPMD上での混合手順の生成手法の処理の流れを擬似コードを交えて説明する.
+\ref{proposed}~章では，本論文の提案手法である2$\times$3ミキサーを用いた液滴移動のないPMD上での混合手順の生成手法の処理の流れを擬似コードを交えて説明する.
 
 
 まず，本論文の提案手法の入出力について説明する．
@@ -14,7 +14,7 @@
 親ミキサーは，それらの提供液滴を移動させずに配置された場所で混合する．
 
 \begin{figure}[tbp]
- \centering\includegraphics[scale=0.41]{img/OutPut.pdf}
+ \centering\includegraphics[scale=0.50]{img/OutPut.pdf}
  \caption{提案手法の入出力}\label{fig:inputoutput}
 \end{figure}
 
@@ -23,8 +23,8 @@
  \begin{algorithmic}[1]
      \Require $\mathit{Tree}$：2$\times$2ミキサーノードと2$\times$3ミキサーノード，試薬液滴ノードを含む希釈木 
      \Require $\mathit{PMDSize}$：使用するPMDのサイズ
-     \State $\mathit{TransformedTree} \gets$ transform($Tree$) \Comment{希釈木の変形操作}\label{transform_pseudo}
-     \State $\mathit{MixInfo \gets}$genMixOrder($\mathit{TransformedTree,PMDSize}$) \Comment{混合手順の生成} \label{xntm_pseudo}
+     \State $\mathit{TransformedTree} \gets$ \Call{TransformTree}{$Tree$} \Comment{希釈木の変形操作}\label{transform_pseudo}
+     \State $\mathit{MixInfo \gets}$\Call{GenMixOrder}{$\mathit{TransformedTree,PMDSize}$} \Comment{混合手順の生成} \label{xntm_pseudo}
 
       \Return $\mathit{MixInfo}$
  \end{algorithmic}
@@ -95,7 +95,7 @@ ECV(1) = ECV(2) $<$ ECV(3) = ECV(4)であるため，図~\ref{fig:Transform}で�
 オーバーラップが起こりにくくなれば，フラッシングの回数も減らすことができる．
 
 \begin{figure}[tbp]
- \centering\includegraphics[scale=0.5]{img/Transform.pdf}
+ \centering\includegraphics[scale=0.53]{img/Transform.pdf}
  \caption{希釈木の変形操作}\label{fig:Transform}
 \end{figure}
 
@@ -107,7 +107,7 @@ ECV(1) = ECV(2) $<$ ECV(3) = ECV(4)であるため，図~\ref{fig:Transform}で�
 図~\ref{fig:result}（a）から（e）の左下に書かれたTという値は混合手順が実行されるタイムステップ，Fという値はそのタイムステップに至るまでに行われたフラッシングの回数を表す．
 
 \begin{figure}[tbp]
- \centering\includegraphics[scale=0.5]{img/result.pdf}
+ \centering\includegraphics[scale=0.6]{img/result.pdf}
     \caption{図~\ref{fig:Transform}（b）の希釈木に対するPMD上での液滴移動のない混合手順の生成結果}\label{fig:result}
 \end{figure}
 
@@ -117,6 +117,7 @@ Algorithum~\ref{alg:genMixOrder}に液滴移動のないPMD上での混合手順
  \begin{algorithmic}[1]
      \Require $\mathit{Tree}$：2$\times$2ミキサーノードと2$\times$3ミキサーノード，試薬液滴ノードを含む希釈木 
      \Require $\mathit{PMDSize}$：使用するPMDのサイズ
+     \Function{GenMixOrder}{$\mathit{TransformedTree,PMDSize}$} 
      \State $\mathit{TransformedTree} \gets$\Call{TransformTree}{$\mathit{Tree.RootMixer}$} \Comment{希釈木の変形} 
      \State $\mathit{PMD}\,\gets $  PMDInit($\mathit{PMDSize}$)
      \State $\mathit{PMD}\,\gets $  PlaceOnPMD($\mathit{TransformedTree.RootMixer,PMD}$)
@@ -150,6 +151,7 @@ Algorithum~\ref{alg:genMixOrder}に液滴移動のないPMD上での混合手順
     \EndWhile 
 
      \Return $\mathit{ret}$
+     \EndFunction
  \end{algorithmic}
 \end{algorithm}
 
@@ -184,7 +186,7 @@ PMD上での液滴移動のない混合手順の生成過程で行われる処�
 
 ミキサーでの試薬の混合を行っている，図~\ref{fig:process}（d），（g），（h），（j），（k）が，本論文の提案手法の出力，2$\times$3ミキサーを用いたPMD上での液滴移動のない混合手順である．
 \begin{figure}[tbp]
- \centering\includegraphics[scale=0.9]{img/process.pdf}
+ \centering\includegraphics[scale=0.93]{img/process.pdf}
  \caption{液滴移動のない混合手順の生成過程}\label{fig:process}
 \end{figure}
 
