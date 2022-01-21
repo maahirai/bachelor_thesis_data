@@ -37,7 +37,7 @@ Algorithm~\ref{alg:all}に本論文の提案手法のアルゴリズム全体の
 まず，1つ目の処理である，Algorithm~\ref{alg:all}の\ref{transform_pseudo}行目の，希釈木の変形操作の説明を行う． 希釈木の変形操作は，希釈木を入力とし，変形された希釈木を出力する． 変形操作を高さ3の希釈木に対して行った場合の例を図~\ref{fig:Transform}に示\mout{す}．
 図~\ref{fig:Transform}（a）は変形前の希釈木，図~\ref{fig:Transform}（b）は変形後の希釈木である．
 
-希釈木の変形操作では，まず，希釈木内の各ノードに\bout{予測混雑度を割り当てる．本論文では，予測混雑度として各ミキサーノードをルートとする部分木内に含まれるミキサーノードの個数を使う．}
+希釈木の変形操作では，まず，希釈木内の各ノードに\bout{予測混雑度を割り当てる．本論文では，予測混雑度として各ミキサーノードをルートとする部分木内に含まれるミキサーノードの\rout{評価値の値の和}を使う．}
 \bout{予測混雑度の割当後，}親ミキサーノードと，その全ての子ミキサーノードとの間に張られているエッジの順番を，各子ミキサーに割り当てられた予測混雑度をキー値にして降順でソートする． 
 
 具体例を用いて，希釈木の変形操作で行われる処理を説明する．
@@ -55,7 +55,7 @@ ECV(M$_1$) = ECV(M$_2$) $<$ ECV(M$_3$) = ECV(M$_4$)であるため，図~\ref{fi
      \Function {TransformTree}{$\mathit{\bout{Tree}}$}
         \State $\mathit{Children}$ = array()
         \ForAll {$\mathit{child}\gets \mathit{Tree.root.Children}$}
-            \State $\mathit{\bout{ECV}}=$MixerNum($child$) \Comment{$\mathit{child}$を根に持つ部分木内のミキサーノード数}
+            \State $\mathit{\bout{ECV}}=$\rout{\Call{ EvalMixer}{$child$} }\Comment{$\mathit{child}$を根に持つ部分木内のミキサーノード数}
             \State Children.append(($\mathit{\bout{ECV},child}$))
         \EndFor 
         \State $\mathit{SortedByECV} \gets $sorted($Children,reverse=$\True)\Comment{$\mathit{ecv}$をキー値に降順でソート}
@@ -65,11 +65,31 @@ ECV(M$_1$) = ECV(M$_2$) $<$ ECV(M$_3$) = ECV(M$_4$)であるため，図~\ref{fi
             \State $\mathit{res}$.append($\mathit{SubTree}$)
         \EndFor 
         \State \bout{$\mathit{TransformedTree}\gets \mathit{Tree}$ }
-        \State \bout{$\mathit{TransformedTree.root.Children}\gets \mathit{res}$}
-        
-        \Return \bout{$\mathit{TransformedTree}$ }
+        \State \bout{$\mathit{TransformedTree.root.Children}\gets \mathit{res}$}\Return \bout{$\mathit{TransformedTree}$ }
     \EndFunction 
-
+    
+     \State \rout{$\mathit{MixerVal}\gets$array($-1,\mathit{Tree.MixerNum}$)}
+     \Function {EvalMixer}{$\mathit{\bout{Tree}}$}
+        \If {\rout{$Tree.root.isMixer == False$}}\rout{\Return 0}
+        \Else 
+            \State \rout{$\mathit{idx}\gets \mathit{Tree.root.MixerIndex}$}
+            \If {$\rout{\mathit{MixerVal[idx]} \geq 0}$}\Return \rout{MixerVal[idx]}
+            \Else 
+                \State \rout{ $\mathit{v}\gets 0$}
+                \ForAll {$\rout{\mathit{child}\gets \mathit{Tree.root.Children}}$}
+                    \If {\rout{$\mathit{child.isMixer} $}}
+                        \State \rout{$\mathit{weight} \gets 1$}
+                        \If {\rout{$\mathit{child.size}== 6 $}}
+                            \State \rout{$\mathit{weight} \gets 1.5$}
+                        \EndIf 
+                        \State \rout{$v+=\mathit{weight*(1+}$\Call{EvalMixer}{$\mathit{child}$})}
+                    \EndIf 
+                \EndFor 
+                \State \rout{$\mathit{MixerVal[idx]}\gets v$}
+                \Return \rout{$\mathit{MixerVal[idx]}$}
+            \EndIf
+        \EndIf
+    \EndFunction 
  \end{algorithmic}
 \end{algorithm}
 %次に，この変形操作の目的を説明する．
