@@ -67,7 +67,7 @@ NTMは，図~\ref{fig:ntmresult}（a）\cout{が示し}ているような希釈�
 希釈木とは，試薬合成で目標濃度の\cout{混合}液滴を得るために，\cout{液滴の混合をどのように行えば良いか}を木で表したものである．
 図~\ref{fig:ntmresult}（a）の希釈木において，ミキサーでの液滴の混合はM1からM4のミキサーノードで表され，
 \mout{ミキサーでの液滴の混合で用いられる}試薬液滴は，\mout{希釈木の葉に位置する}試薬\mout{液滴}ノードで表されている．
-また，図~\ref{fig:ntmresult}（a）の希釈木のエッジに付加された重みは，親ミキサーノードが\mout{子ミキサーノード，もしくは，子試薬液滴ノード（子ノード）}から受け取る液滴の数を表している．
+また，図~\ref{fig:ntmresult}（a）の希釈木のエッジに付加された重みは，親ミキサーノードが\mout{子ミキサーノードや子試薬液滴ノード（子ノード）}から受け取る液滴の数を表している．
 
 \ref{arc}~節で述べたように，PMDは2$\times$3ミキサーなど，2$\times$2以外の大きさを持つミキサーを生成できる．
 しかし，本節で紹介してきたNTMには，2$\times$2ミキサーノードのみを含む希釈木しか扱うことができないという制約がある．
@@ -75,7 +75,7 @@ NTMは，図~\ref{fig:ntmresult}（a）\cout{が示し}ているような希釈�
 したがって，PMD上の液滴移動のない混合手順の生成手法には，NTMより多くの種類の希釈木を扱うことが出来るように拡張する余地がある．
 NTMでは扱えなかった希釈木を扱えるようになれば，手法としての汎用性は高まる．
 \begin{figure}[tbp]
- \centering\includegraphics[scale=0.63]{img/NTMResult_jp.pdf}
+ \centering\includegraphics[scale=0.7]{img/NTM.pdf}
     \caption{NTMの入力データと出力データ，参考文献~\cite{4}より引用し一部改変}\label{fig:ntmresult}
 \end{figure}
 
