@@ -117,16 +117,17 @@ def NumChildMixer(root):
         if not lNumChildMixer[mixeridx] == -1:
             return lNumChildMixer[mixeridx]
         else :
-            v = 1.0
+            v = 0
             psize = root.size
+            pweight = 1.0
             if psize == 6:
-                v = 1.5 
+                pweight = 1.5 
             for item in root.children:
                 if IsMixerNode(item):
                     weight = 1.0
                     if item.size == 6: 
                         weight = 1.5
-                    v += weight*NumChildMixer(item)
+                    v += pweight*weight*(1+NumChildMixer(item))
             lNumChildMixer[mixeridx] = v
             return lNumChildMixer[mixeridx]
 
