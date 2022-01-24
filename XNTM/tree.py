@@ -94,8 +94,10 @@ def _TransformTree(root):
             # we must place tht item firstly if (item.provide_vol == (ParentMixer.size - 1))
             if item.provide_vol == root.size - 1:
                 # so large value
-                INF = 100000000
-                ecv += INF
+                INF = 1000000000000
+                ecv += INF 
+            elif item.provide_vol%2 and item.provide_vol>1 and item.size//2<=2: 
+                ecv += 100000000
         Children.append((item,ecv))
     SortedByECV = sorted( Children, key = lambda x: x[1], reverse = True)
     res = []
@@ -115,11 +117,16 @@ def NumChildMixer(root):
         if not lNumChildMixer[mixeridx] == -1:
             return lNumChildMixer[mixeridx]
         else :
-            v = 0
+            v = 1.0
+            psize = root.size
+            if psize == 6:
+                v = 1.5 
             for item in root.children:
                 if IsMixerNode(item):
-                    v += 1
-                    v += NumChildMixer(item)
+                    weight = 1.0
+                    if item.size == 6: 
+                        weight = 1.5
+                    v += weight*NumChildMixer(item)
             lNumChildMixer[mixeridx] = v
             return lNumChildMixer[mixeridx]
 
@@ -140,7 +147,7 @@ def _getNodesEdges(node):
     return nodelist, edgelist
 
 import pydot
-
+from .utility import Translate
 ColorList = []
 def _createTree(root, label=None):
     '''
@@ -150,7 +157,7 @@ def _createTree(root, label=None):
     if not ColorList:
         ColorList = list(itertools.repeat("#000000",MIX_COUNTER))
     P = pydot.Dot(graph_type='digraph', label=label, labelloc='top', labeljust='left')#, nodesep="1", ranksep="1")
-    P.set_node_defaults(style='filled',fixedsize='true')
+    P.set_node_defaults(style='filled',fixedsize='true',fontsize='18',fontname='Time Roman')
     P.set_graph_defaults(bgcolor="#00000000")
     P.set_edge_defaults(fontsize = '20',arrowsize = '0.5')
 
@@ -159,7 +166,7 @@ def _createTree(root, label=None):
     for i,node in enumerate(nodelist):
         RGB = 0
         for d in range(3):
-            RGB = RGB * 256 + random.randint(64,255)
+            RGB = RGB * 256 + random.randint(128,255)
 
         ### 試薬液滴ノードの出力設定
         shape,color,width='plaintext',"#FFFFFF","0.3" 
@@ -169,7 +176,7 @@ def _createTree(root, label=None):
             if ColorList[mixeridx] == "#000000":
                 ColorList[mixeridx] = "#"+hex(RGB)[2:]
             shape,color,width = 'circle',ColorList[mixeridx],"0.75"
-        n = pydot.Node(node[0], shape = shape,label=node[1],fillcolor=color ,width= width)
+        n = pydot.Node(node[0], shape = shape,label=Translate(node[1]),fillcolor=color ,width= width)
         P.add_node(n)
     
     # Edges
