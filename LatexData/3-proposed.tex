@@ -192,7 +192,7 @@ PMD上での液滴移動のない混合手順の生成過程で行われる処�
             \State $\mathit{ShouldFlush}\gets\mathit{False}$
         \EndIf
         \EndFor 
-\If{$\mathit{TimeForFlushing}$}
+     \If{$\mathit{\rout{ShouldFlush}}$}
                     \State $\mathit{PMD}\gets$Flush($\mathit{PMD}$)\Comment{フラッシング}
                 \EndIf
     \EndWhile 
