@@ -36,13 +36,13 @@ PMD上での液滴移動のない混合手順の生成を行う．
 これにより，高さの大きい希釈木における，深さの小さい位置にあるミキサーノード間でも，割り当てられる予測混雑度の値の差は大きくなる可能性が高く，予測混雑度の差が\rout{極端に小さい}場合での位置の入れ替えは少なくなる．
 したがって，高さの大きい希釈木における，深さの小さい位置にあるミキサーノードに対する，オーバーラップの\gout{発生させ}やすさの評価指標として予測混雑度が上手くはたらき，フラッシングの回数の削減につながったと考えられる．
 また，これに対して，高さの小さい希釈木においては，深さの小さい位置にあるミキサーノードに対しても，予測混雑度がオーバーラップの\gout{発生させ}やすさの評価指標として上手くはたらきにくく，フラッシングの回数の削減につながりにくいと考えられる．
+\gout{この条件に沿う希釈木の例として，図~\ref{fig:h3}に示した希釈木がある．図~\ref{fig:h3}の希釈木に関する実験データは表~\ref{table:h3}に示した．}
 
 表~\ref{table:result}から分かるように，希釈木の高さが大きいほど，希釈木内に含まれる2$\times$2ミキサーや2$\times$3ミキサーの平均個数は多くなる．
 \rout{また，PMD上へのミキサーの配置の回数が増えるほど，オーバーラップの発生回数とフラッシングが必要になる回数は増える．}
 \rout{したがって，希釈木の高さが大きいほど，その希釈木を入力として生成された混合手順内で必要になるフラッシングの絶対数は増加し，その削減が容易になる．}
 \rout{以上の理由で，希釈木の高さが大きいほど，}フラッシングの回数の平均削減率が高くなったと考えられる．
 また，これに対して，希釈木の高さが小さい場合は，その希釈木を入力として生成された混合手順内で必要になるフラッシングの\rout{回数の絶対数が少ないため，フラッシングの回数の}削減は難しいと考えられる．
-\gout{この条件に沿う希釈木の例として，図~\ref{fig:h3}に示した希釈木がある．図~\ref{fig:h3}の希釈木に関する実験データを表~\ref{table:h3}に示した．}
 
 
 以上の理由から，
@@ -52,12 +52,14 @@ PMD上での液滴移動のない混合手順の生成を行う．
 
 \begin{table}[tbp]
 \centering
-\caption{実験結果}
-\begin{tabular}{l|r|r|r} \Hline
-\multicolumn{1}{l|}{希釈木の高さ}& \multicolumn{1}{l|}{2$\times$2ミキサー平均個数} &  \multicolumn{1}{l|}{2$\times$3ミキサー平均個数} & \multicolumn{1}{l}{フラッシングの平均削減率（$\%$）} \\\hline\hline
-3  & 3.26 & 4.16 & -0.29 \\\hline
-4  & 7.17&9.06&2.92  \\\hline
-5  & 13.37&17.67&5.18  \\\hline
+\caption{実験結果（小数点2桁まで）}
+\begin{tabular}{l|r|r|r|r|r|r|r} \Hline
+    \multicolumn{1}{l|}{\multirow{2}{*}{希釈木の高さ}}& \multicolumn{2}{c|}{平均ミキサー数} &\multicolumn{2}{c|}{平均オーバーラップ数} &  \multicolumn{2}{l|}{平均フラッシング数} & \multicolumn{1}{l}{\multirow{2}{*}{\begin{tabular}{c}フラッシングの\\平均削減率（$\%$）\end{tabular}}} \\\cline{2-7}
+        &2$\times$2&2$\times$3&変形前&変形後&変形前&変形後&\\\hline\hline 
+    %\multirow{2}{*}{希釈木の高さ}& \multicolumn{2}{c|}{\begin{tabular}{r|r}\multicolumn{2}{c}{平均オーバーラップ数}\\\cline{1-2}\end{tabular}} &  \multicolumn{2}{l|}{\begin{tabular}{c}変形ありでの\\平均フラッシング数\end{tabular}} & \multicolumn{1}{l}{\begin{tabular}{c}フラッシングの\\平均削減率（$\%$）\end{tabular}} \\\hline\hline 
+    3  &3.30&4.21& 2.64&2.66&1.78 & 1.79 & -2.30 \\\hline
+    4  &7.03&9.29& 7.91&7.68&6.15&5.80&2.94  \\\hline
+    5  &13.88&18.25& 17.64&16.92&14.35&13.39&4.96  \\\hline
 \end{tabular}
 \label{table:result}
 \end{table}
@@ -71,7 +73,7 @@ PMD上での液滴移動のない混合手順の生成を行う．
 
 \begin{figure}[tbp]
  \centering 
-    \includegraphics[scale=0.65]{img/exception.pdf}
+    \includegraphics[scale=0.65]{img/h3.pdf}
  \caption{高さ3で，変形操作によってフラッシングの回数が増加する希釈木の変形}\label{fig:h3}
 \end{figure}
 
@@ -79,8 +81,8 @@ PMD上での液滴移動のない混合手順の生成を行う．
 \centering
     \caption{図~\ref{fig:h3}（a），（b）の希釈木から得られる混合手順内で発生するオーバーラップ数と，必要になるフラッシング数}
 \begin{tabular}{l|r|r} \Hline
-    &\multicolumn{1}{l|}{変形前の希釈木（図~\ref{fig:h3}（a））}& \multicolumn{1}{l|}{変形後の希釈木（図~\ref{fig:h3}（b））}  \\\hline\hline
-オーバーラップ数  & 2 & 3  \\\hline
+    &\multicolumn{1}{l|}{変形前の希釈木（図~\ref{fig:h3}（a））}& \multicolumn{1}{l}{変形後の希釈木（図~\ref{fig:h3}（b））}  \\\hline\hline
+オーバーラップ数  & 4 & 5  \\\hline
 フラッシング数  & 2&4  \\\hline
 \end{tabular}
 \label{table:h3}
