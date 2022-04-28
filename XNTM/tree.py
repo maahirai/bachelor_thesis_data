@@ -79,10 +79,10 @@ def TransformTree(root):
     global lNumChildMixer,MIX_COUNTER 
     lNumChildMixer = list(itertools.repeat(-1,MIX_COUNTER))
     cpTree = deepcopy(root)
-    transformed_tree = _TransformTree(cpTree)
+    transformed_tree = _new_TransformTree(cpTree)
     return transformed_tree
 
-def _TransformTree(root):
+def _old_TransformTree(root):
     Children = []
     for item in root.children:
         ecv = 0
@@ -102,12 +102,54 @@ def _TransformTree(root):
     SortedByECV = sorted( Children, key = lambda x: x[1], reverse = True)
     res = []
     for item in SortedByECV:
-        Subtree = _TransformTree(item[0])
+        Subtree = _old_TransformTree(item[0])
         res.append(Subtree)
     root.children = res
     return root
 
-        
+def _new_TransformTree(root):
+    root = split_flash_needed_pattern(root)
+    return _old_TransformTree(root)
+
+def split_flash_needed_pattern(root):
+    global MIX_COUNTER,Registered_Hash
+    # 6Mixerの5や4Mixerの3など必ずフラッシングが発生する提供比率を，4:1や2:1に分割することで回避する．
+    fragments = []
+    for item in root.children:
+        if IsMixerNode(item):
+            if item.provide_vol == root.size - 1:
+                item.provide_vol = item.provide_vol - 1
+                fragment = generate_fragment(item)
+                fragments.append(fragment)
+    for item in fragments: 
+        root.children.append(item)
+    res = []
+    for item in root.children: 
+        Subtree = split_flash_needed_pattern(item)
+        res.append(Subtree)
+    root.children = res 
+    return root
+               
+
+def generate_fragment(root): 
+    global MIX_COUNTER,Registered_Hash
+    fragment = deepcopy(root)
+    fragment.provide_vol = 1
+    q = []
+    q.append(fragment)
+    while(q): 
+        Node = q.pop()
+        hash_v = 1
+        while(hash_v in Registered_Hash):
+            hash_v = random.randint(1,100001)
+        Registered_Hash.append(hash_v)
+        Node.hash = hash_v
+        if IsMixerNode(Node): 
+            MIX_COUNTER += 1
+            for child in Node.children: 
+                q.append(child)
+    return fragment
+
 def NumChildMixer(root):
     global lNumChildMixer
     if not IsMixerNode(root):
@@ -116,6 +158,7 @@ def NumChildMixer(root):
         mixeridx = int(root.name[1:])
         if not lNumChildMixer[mixeridx] == -1:
             return lNumChildMixer[mixeridx]
+            print(root.name,v)
         else :
             v = 0
             psize = root.size
