@@ -79,7 +79,7 @@ def TransformTree(root):
     global lNumChildMixer,MIX_COUNTER 
     lNumChildMixer = list(itertools.repeat(-1,MIX_COUNTER))
     cpTree = deepcopy(root)
-    transformed_tree = _new_TransformTree(cpTree)
+    transformed_tree = _old_TransformTree(cpTree)
     return transformed_tree
 
 def _old_TransformTree(root):
@@ -115,12 +115,17 @@ def split_flash_needed_pattern(root):
     global MIX_COUNTER,Registered_Hash
     # 6Mixerの5や4Mixerの3など必ずフラッシングが発生する提供比率を，4:1や2:1に分割することで回避する．
     fragments = []
+    skip = False
+    #全部ミキサーノードの場合のみ対象
     for item in root.children:
-        if IsMixerNode(item):
-            if item.provide_vol == root.size - 1:
-                item.provide_vol = item.provide_vol - 1
-                fragment = generate_fragment(item)
-                fragments.append(fragment)
+        if not IsMixerNode(item):
+           skip = True 
+
+    for item in root.children:
+        if (not skip) and item.provide_vol == root.size - 1:
+            item.provide_vol = item.provide_vol - 1
+            fragment = generate_fragment(item)
+            fragments.append(fragment)
     for item in fragments: 
         root.children.append(item)
     res = []
