@@ -83,8 +83,11 @@ def CornerCase(modules,ProvRatio):
         
 ReagentName = []
 AllModules = {}
+
 def genInputTree(MaxHeight,MixerRatio,ReagentKind,fair=False): 
     global HASHES,AllModules,ReagentName
+    mixer22_num = 0
+    mixer23_num = 0
     for i in range(1,ReagentKind+1): 
         ReagentName.append("R"+str(i))
     AllModules = {}
@@ -100,6 +103,10 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind,fair=False):
         if height > max_height: 
             max_height = height
         if e.isMixer: 
+            if e.size == 4:
+                mixer22_num += 1
+            else : 
+                mixer23_num += 1
             ProvRatio = genProvidedRatio(e.size)
             IsMixr = [True,False]
             ratio = [MixerRatio,1-MixerRatio]
@@ -113,9 +120,8 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind,fair=False):
                 l = sorted(l,reverse=True)
                 for idx,data in enumerate(l): 
                     cm,prov = data
-                    ChildModules[idx]=cm
-                    ProvRatio[idx]=prov
-
+                    ChildModules[idx]=cm 
+                    ProvRatio[idx] = prov
             ProvReagent = {}
             for idx,isMixer in enumerate(ChildModules): 
                 if isMixer and height < MaxHeight-1 : 
@@ -145,6 +151,6 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind,fair=False):
     ProcessMergeQuery(MergeQuery)
 
     ret = ConstructList(root.hash)
-    return [max_height,ret] 
+    return [max_height,mixer22_num,mixer23_num,ret] 
 
 

@@ -234,11 +234,13 @@ def viewPMD():
         print("")
 
 from .utility import ProcessImage
+from .utility import ProcessSlideImage
 def CountFlushing(RootHash,savefile,ColorList,ImageOut=False): 
     global Vsize,Hsize,TimeStep
     PMD = [[0 for j in range(Hsize)]for i in range(Vsize)]
     Drop = {}
     Mixer = {}
+    overlapp_num = 0
     q = []
     q.append(RootHash)
     while(q): 
@@ -255,8 +257,13 @@ def CountFlushing(RootHash,savefile,ColorList,ImageOut=False):
             if str(ts) not in Drop:
                 Drop[str(ts)] = []
             Drop[str(ts)].append(hash)
+        PlacementTimesteps = []
         for chash in Node.ChildrenHash: 
             q.append(chash) 
+            PlacementTimesteps.append(getNode(chash).PlaceTimeStep)
+        s = set(PlacementTimesteps)
+        if len(s)>1:
+            overlapp_num += len(s)-1
     ret = 0
     skipped = 0
     for ts in range(1,TimeStep+1):
@@ -283,18 +290,20 @@ def CountFlushing(RootHash,savefile,ColorList,ImageOut=False):
                                                     PMD[ty][tx] = 0 
                                         flushed.append(hash)
                     if PMD[y][x]!= 0:
-                        return -2
+                        return [-2,-1]
                     else: 
                         PMD[y][x] = -1*dhash 
         if str(ts) in Mixer:
             if ImageOut: 
-                ProcessImage(savefile+"_"+str(ts),Vsize,Hsize,ColorList,ts-skipped,ret,PMD,Mixer[str(ts)],NodeInfo) 
+                #ProcessImageの方が見にくい
+                #ProcessImage(savefile+"_"+str(ts),Vsize,Hsize,ColorList,ts-skipped,ret,PMD,Mixer[str(ts)],NodeInfo) 
+                ProcessSlideImage(savefile+"_"+str(ts),Vsize,Hsize,ColorList,ts-skipped,ret,PMD,Mixer[str(ts)],NodeInfo) 
             for mhash in Mixer[str(ts)]: 
                 for wy,wx in getNode(mhash).CoveringCell: 
                     PMD[wy][wx] = -1*mhash 
         else : 
             skipped += 1 
-    return ret
+    return [ret,overlapp_num]
 
 ########################################################################################
 def getRatioAndPrefixOfChildren(MHash): 
@@ -562,7 +571,7 @@ def getAllCheckCells(CheckCells,ExpandDirection,SubTreeHeight):
                     ret.append(AddCell)
     return ret
 
-def Evallib(lib,PHash):
+def old_Evallib(lib,PHash):
     global PMDState,MaxLayerNum,CellForProtectFromFlushing,SubTreeHeightMean,Vsize,Hsize
     PMixer = getNode(PHash)
     Layeredlib = getLayeredlib(lib)
@@ -625,6 +634,7 @@ def Evallib(lib,PHash):
                         elif diff_cx<0:
                             if pmixer_cx-x>0 : 
                                 evalv += 10000.0/(5**(abs(x-center_x)))
+                # 試薬液滴用
                 else : 
                     PatternCoveringCells = copy.deepcopy(pattern["overlapping_cell"])
                     # 親ミキサーから見た配置方向がPMDの中心方向と同じなら，配置できない状況が生まれやすい．
@@ -734,6 +744,184 @@ def Evallib(lib,PHash):
                         evalv += 1000.0/((layer+1)*dist+1)
     return evalv
 
+def new_Evallib(lib,PHash):
+    global PMDState,MaxLayerNum,CellForProtectFromFlushing,SubTreeHeightMean,Vsize,Hsize
+    PMixer = getNode(PHash)
+    Layeredlib = getLayeredlib(lib)
+
+    ### 希釈木に対応したミキサーの順番で配置しているかチェック
+    ChildrenHashes = copy.deepcopy(PMixer.ChildrenHash)
+    for layer in range(MaxLayerNum):
+        MixerPatterns = Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")]
+        Hashes = []
+        for pattern in MixerPatterns:
+            Hashes.append(pattern["hash"])    
+        CmpHashes = []
+        while (len(CmpHashes) < len(Hashes)):
+            hash = ChildrenHashes.pop(0)
+            if getNode(hash).kind == "Mixer": 
+                CmpHashes.append(hash)
+        for ChildHash in Hashes: 
+            if ChildHash not in CmpHashes: 
+                ### 失格
+                return 100000000000000000001.0
+    ### 以上のパートをくぐり抜けたなら: 配置順がok
+   
+    ### 親ミキサーの中心座標を求める.
+    center_y,center_x = (Vsize-1)/2,(Hsize-1)/2
+    pmixer_cy,pmixer_cx = 0,0
+    length = 0
+    for pcell in getNode(PHash).CoveringCell: 
+        y,x = pcell 
+        pmixer_cy += y 
+        pmixer_cx += x 
+        length += 1
+    pmixer_cy /= length 
+    pmixer_cx /= length 
+
+    ### 評価開始
+    evalv = 0
+    ### 配置予定地がまずくないかチェック
+    for layer in range(MaxLayerNum):
+         for idx,prefix in enumerate(ModulePrefix): 
+            for pattern in Layeredlib[layer][idx]: 
+                PatternCoveringCells = []
+                Module = getNode(pattern["hash"])
+                if Module.kind == "Mixer":
+                    RefCell = pattern["ref_cell"]
+                    orientation = pattern["orientation"] if Module.size == 6 else ""
+                    PatternCoveringCells = getMixerCoveringCell(RefCell,orientation)
+                    # 親ミキサーから見た配置方向がPMDの中心方向と同じなら，配置できない状況が生まれやすい．
+                    #　フラッシュするセルは中心から見て外側のセル．中心から近いとフラッシュできない可能性が高くなる
+                    diff_cy,diff_cx = center_y-pmixer_cy,center_x-pmixer_cx 
+                    for cell in pattern["flushing_cell"]:
+                        y,x = cell
+                        if diff_cy>0:
+                            if y>pmixer_cy:
+                                evalv += 10000.0/(5**(abs(y-center_y))) 
+                        elif diff_cy<0: 
+                            if y<pmixer_cy:
+                                evalv += 10000.0/(5**(abs(y-center_y)))
+                        if diff_cx>0:
+                            if x-pmixer_cx> 0: 
+                                evalv += 10000.0/(5**(abs(x-center_x)))
+                        elif diff_cx<0:
+                            if pmixer_cx-x>0 : 
+                                evalv += 10000.0/(5**(abs(x-center_x)))
+                # 試薬液滴用
+                else : 
+                    PatternCoveringCells = copy.deepcopy(pattern["overlapping_cell"])
+                    # 親ミキサーから見た配置方向がPMDの中心方向と同じなら，配置できない状況が生まれやすい．
+                    # 試薬液滴はミキサーの後に配置されるから，中心に近いと配置できない可能性が高まる．
+                    if layer == 0: 
+                        continue 
+                    else : 
+                        diff_cy,diff_cx = center_y-pmixer_cy,center_x-pmixer_cx 
+                        for cell in PatternCoveringCells:
+                            y,x = cell
+                            if diff_cy>0:
+                                if y>pmixer_cy:
+                                    evalv += 100000.0/5**(abs(y-center_y)) 
+                            elif diff_cy<0: 
+                                if y<pmixer_cy:
+                                    evalv += 100000.0/5**(abs(y-center_y))
+                            if diff_cx>0:
+                                if x-pmixer_cx> 0: 
+                                    evalv += 100000.0/5**(abs(x-center_x))
+                            elif diff_cx<0:
+                                if pmixer_cx-x>0 : 
+                                    evalv += 100000.0/5**(abs(x-center_x))
+                v =  CanPlace(Module.hash,PatternCoveringCells,layer)
+                if v<0: 
+                    ### 失格
+                    return 100000000000000000001.0
+                else : 
+                    evalv += v
+
+    #　ミキサー同士が離れて配置されているか評価
+    for layer in range(MaxLayerNum):
+        MixerPatterns = copy.deepcopy(Layeredlib[layer][getModulePrefixIdx("6")]+Layeredlib[layer][getModulePrefixIdx("4")] )
+        Len = len(MixerPatterns)
+        for first in range(Len): 
+            for second in range(Len): 
+                if  first >= second: 
+                    continue
+                FirstPattern = MixerPatterns[first]
+                SecondPattern = MixerPatterns[second]
+                hashOrder = getNode(PHash).ChildrenHash 
+                FHash = FirstPattern["hash"]
+                SHash = SecondPattern["hash"]
+                fidx = hashOrder.index(FHash)
+                sidx = hashOrder.index(SHash)
+                FEvalCell = copy.deepcopy(FirstPattern["overlapping_cell"]+FirstPattern["flushing_cell"])
+                SEvalCell = copy.deepcopy(SecondPattern["overlapping_cell"]+SecondPattern["flushing_cell"])  
+                MinDist = 100
+                for FCell in FEvalCell: 
+                    for SCell in SEvalCell: 
+                        fy,fx = FCell
+                        sy,sx = SCell
+                        tdist = abs((fy-sy)+(fx-sx))
+                        if MinDist > tdist : 
+                            MinDist = tdist 
+                ### 各ミキサーノードを根とする部分木が子孫ノードを持つほど，ミキサー間の距離が重要になってくる
+                expo = ((getNode(FHash).SubTreeHeight+getNode(SHash).SubTreeHeight))-(2**(MinDist))
+                if expo < 0: 
+                    expo = 0
+                v = 1000*(expo)/((fidx+1)*(sidx+1))
+                evalv += v
+
+    PMixerCoveringCell = getMixerCoveringCell(PMixer.RefCell,PMixer.orientation)
+    dy = [0,1,0,-1]
+    dx = [-1,0,1,0]
+
+    OpenDirection = [True for i in range(4)]
+    for cell in PMixerCoveringCell : 
+        y,x = cell
+        for way in range(4): 
+            ny,nx = y+dy[way],x+dx[way]
+            if [ny,nx] in PMixerCoveringCell: 
+                continue
+            if PMDState[ny][nx] != 0: 
+                OpenDirection[way] = False 
+    YametokeDirection = 4
+    for way in range(4):
+        if OpenDirection[way]: 
+            YametokeDirection -= 1
+
+    # lib内の各パターンを評価する
+    for layer in range(MaxLayerNum): 
+        is_empty = True
+        for idx,prefix in enumerate(ModulePrefix): 
+            if prefix == "r":
+                continue
+            for pattern in Layeredlib[layer][idx]: 
+                hash = pattern["hash"]
+                diff = layer - YametokeDirection 
+                if diff > 0:
+                    ### 高さの大きい部分木ほど，周囲に配置できるセルが多くないとダメ
+                    add = (10000/2**((getNode(hash).depth)*(getNode(hash).SubTreeHeight)))**diff
+                    if add > 10000000000000000.0: 
+                        add = 1000000000000000 
+                    evalv += add
+                    evalv += 100**diff
+                ### 各prov_cellの4方に同lib内patternのprov_cellが無いかチェックする
+                OkDirection = [False for i in range(4)]
+                OnParentCell = copy.deepcopy(pattern["overlapping_cell"]+pattern["flushing_cell"])
+                for y,x in OnParentCell: 
+                    for direction in range(4): 
+                        CheckCell = [y+dy[direction],x+dx[direction]]
+                        if CheckCell not in PMixerCoveringCell: 
+                            OkDirection[direction] = True 
+                AllCheckCells = getAllCheckCells(PMixerCoveringCell,OkDirection,getNode(pattern["hash"]).SubTreeHeight)
+                for CheckCell in AllCheckCells: 
+                    checkY,checkX = CheckCell
+                    CheckCellState = PMDState[checkY][checkX]
+                    if CheckCellState != 0 and CheckCellState != PHash:
+                        ### オーバーラップが起こるかも
+                        dist= abs(center_y-checkY)+abs(center_x-checkX)
+                        evalv += 1000.0/((layer+1)*dist+1)
+    return evalv
+
 def getOptlib(PHash): 
     Optlib = {}
     Lib = getLib(PHash)
@@ -744,7 +932,7 @@ def getOptlib(PHash):
             alib = mv(alib,PHash)
             if not alib : 
                 continue
-            v =  Evallib(alib,PHash)
+            v =  old_Evallib(alib,PHash)
             if v < min_v: 
                 min_v = v 
                 Optlib = alib 
@@ -1046,6 +1234,7 @@ def placelib(Hashlib,ParentMixerHash):
                     stateChange = ChangeState(ModuleHash,"OnlyProvDrop")
                     StateChanges.append(stateChange) 
                 else : 
+                    NodeInfo[str(ModuleHash)].PlaceTimeStep = TimeStep+1
                     orientation = ""
                     if "orientation" in pattern :
                         orientation = pattern["orientation"]
@@ -1064,6 +1253,7 @@ def placelib(Hashlib,ParentMixerHash):
     return StateChanges,retHashlib
  
 from .utility import PMDImage
+from .utility import PMDSlideImage
 ### lib内のパターンは評価の際に対応するハッシュ値を割当する．(AssignModuleTolib)
 ### 使用するlibが決定した際に，refCellなどをNodeInfo に書き込む
 ### ParentMixer = str(mixer.size) + mixer.orientation
@@ -1087,13 +1277,16 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
         if ImageName and ColorList:
             ImageCount += 1
             imageName = ImageName+"_"+str(ImageCount)
-            PMDImage(imageName,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer=AtTopOfPlacedMixer,WaitingProvDrops=WaitingProvDrops,ImageOut=ImageOut)
+            # PMDImageの方が見にくい
+            #PMDImage(imageName,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer=AtTopOfPlacedMixer,WaitingProvDrops=WaitingProvDrops,ImageOut=ImageOut)
+            PMDSlideImage(imageName,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer=AtTopOfPlacedMixer,WaitingProvDrops=WaitingProvDrops,ImageOut=ImageOut)
         
         if getNode(RootHash).state == "OnlyProvDrop": 
             if ProcessOut :
                 print("混合手順生成完了")
-            result = CountFlushing(RootHash,ImageName,ColorList,ImageOut=ImageOut)
-            return result
+            FlushNum,OverlappNum = CountFlushing(RootHash,ImageName,ColorList,ImageOut=ImageOut)
+            return [FlushNum,OverlappNum]
+            #return FlushNum,OverlappNum
 
         CannotDoAnything = True 
 
@@ -1146,7 +1339,7 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
             if not Succeed: 
                 if ProcessOut:
                     print("十分な大きさのPMDを用意してください.",file=sys.stderr)
-                return -2
+                return [-2,-1]
             else : 
                 FlushCount += 1
             ### 配置をスキップされていたミキサーや試薬の配置 
@@ -1174,7 +1367,7 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
                         lib = getOptlib(ParentMixerHash)
                         if ParentMixerHash in RollBackHash:
                             if lib == RollBackHash[ParentMixerHash]: 
-                                return -1
+                                return [-1,-1]
                         RollBackHash[ParentMixerHash]=lib
                         CntRollBack += 1
                     else : 
@@ -1192,9 +1385,9 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
         if code == -1 or CntRollBack > 100:
             if ProcessOut:
                 print("扱えない希釈木です．十分な大きさのPMDを用意しているか確認してください．",file=sys.stderr)
-            return -3
+            return [-3,-1]
         elif  FlushCount>1000:
-            return FlushCount 
+            return [FlushCount,-1] 
 
         if ProcessOut:
             viewAllModule(RootHash)
