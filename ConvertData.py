@@ -150,33 +150,21 @@ def JsonToList(json,format):
     l = convert(mid,format)
     return l 
 
-def main(): 
-    input1 = open('Graph444.json','r')
-    f1 = json.load(input1)
+input1 = open('Graph444.json','r')
+f1 = json.load(input1)
 
-    input2 = open('Graph446.json','r')
-    f2 = json.load(input2)
-    
-    lxntm = []
-    c = []
-    for i in range(1,len(f1)+1): 
-        list = JsonToList(f1[str(i)],format=OutputFormat.ntm)
-        #Tree = NTM.listToTree(list)
-        #output = NTM.ntm(Tree,[0,0],[1])
-        #dir  = "./"+str(i)+"ntm"
-        #NTM.visualize_placement(output, axis=[[-3,2], [-3,2]], save_dir=dir)
-        
+input2 = open('Graph446.json','r')
+f2 = json.load(input2)
 
-        #reload(tree)
-        xntmlist = JsonToList(f2[str(i)],format=OutputFormat.xntm)
-        #Tree = tree.InputToTree(xntmlist)
-        #TransformedTree = tree.TransformTree(Tree)
-        #c.append(tree.ColorList)
-        #print(c)
-        #print(xntmlist)
-        #output = XNTM.xntm(Tree,[10,10],ColorList=tree.ColorList,ImageOut=True)
-        #lxntm.append(output[0])
-    #file = open('Xresult.csv','w', encoding='utf-8')
-    #csv.writer(file).writerow(lxntm)
-    
-main()
+ntmstyle = open("ntmInput.txt","wt")
+xntmstyle = open("xntmInput.txt","wt")
+
+for i in range(1,len(f1)+1): 
+    List = JsonToList(f1[str(i)],format=OutputFormat.ntm)
+    ntmstyle.write(str(List)+"\n")
+
+    xntmlist = JsonToList(f2[str(i)],format=OutputFormat.xntm)
+    xntmstyle.write(str(xntmlist)+"\n")
+
+ntmstyle.close()
+xntmstyle.close()
