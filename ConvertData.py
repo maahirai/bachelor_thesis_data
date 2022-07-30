@@ -62,7 +62,7 @@ class tree:
                     if str(n.v) not in self.VtoOriginal:
                         self.VtoOriginal[str(n.v)] = []
                     self.VtoOriginal[str(n.v)].append(n.id)
-                    self.allnode[str(n.id)].setMixersize(n.id,tree)
+                    self.allnode[str(n.id)].setMixersize(n.id,self)
             else: 
                 if str(n.v) not in self.VtoOriginal:
                     self.VtoOriginal[str(n.v)] = []
@@ -110,28 +110,28 @@ class node:
             res += provided 
         self.mixersize = res
         ### MRCM側のバグ?に対応するため，ハードコーディング
-        #if self.mixersize != 4 and self.mixersize != 6: 
-        #    candiv4 ,candiv6= True,True 
-        #    div = -1
-        #    if self.mixersize%6==0: 
-        #        modif6 = int(self.mixersize//6)
-        #        for provided in self.child.values(): 
-        #            if provided%modif6 :
-        #                candiv6 = False 
-        #        if candiv6: 
-        #            div = modif6
-        #    if self.mixersize%4==0: 
-        #        modif4 = int(self.mixersize//4)
-        #        for provided in self.child.values(): 
-        #            if provided%modif4 :
-        #                candiv4 = False 
-        #        if candiv4: 
-        #            div = modif4 
-        #    if div != -1: 
-        #        for cidx,provided in self.child.items():
-        #            tree.allnode[str(idx)].child[str(cidx)] = int(provided//div)
-        #            tree.allnode[str(cidx)].parent[str(idx)] = int(provided//div)
-        #        self.mixersize = int(self.mixersize//div)
+        if self.mixersize != 4 and self.mixersize != 6: 
+            candiv4 ,candiv6= True,True 
+            div = -1
+            if self.mixersize%6==0: 
+                modif6 = int(self.mixersize//6)
+                for provided in self.child.values(): 
+                    if provided%modif6 :
+                        candiv6 = False 
+                if candiv6: 
+                    div = modif6
+            if self.mixersize%4==0: 
+                modif4 = int(self.mixersize//4)
+                for provided in self.child.values(): 
+                    if provided%modif4 :
+                        candiv4 = False 
+                if candiv4: 
+                    div = modif4 
+            if div != -1: 
+                for cid,provided in self.child.items():
+                    tree.allnode[str(id)].child[str(cid)] = int(provided//div)
+                    tree.allnode[str(cid)].parent[str(id)] = int(provided//div)
+                self.mixersize = int(self.mixersize//div)
 
     def ndump(self):
         print("id:{},v:{}".format(self.id,self.v))
