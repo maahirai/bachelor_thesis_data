@@ -78,7 +78,11 @@ class tree:
             if not node.parent and len(self.VtoID[str(node.v)]) == 1: 
                 self.root = node 
 
-    
+    def SeekChild(self,nodev,parentnode): 
+        ids = self.VtoID[nodev]
+        for id in ids: 
+            if str(id) in parentnode.child: 
+                return id
 
     def dump(self): 
         print("root:{},v:{}".format(self.root.id,self.root.v))
@@ -174,8 +178,10 @@ def dfs(tree,node,parentnode=None,format=OutputFormat.xntm):
             for cv in node.child.values():
                 prov_v += cv
             l.append(prov_v)
-        else : 
-            prov_v = node.parent[str(parentnode.id)]
+        else :
+            ### switchingでエイリアスの子ノードから実体のある子ノードに遷移している可能性あり
+            cid = tree.SeekChild(node.v,parentnode)
+            prov_v = parentnode.child[str(cid)]
             if node.ismixing : 
                 l.append(prov_v)
         ### 根から辿ったら(12,2,2,0)はMRCMが作った木では，子を持たないノードだが(6,1,1,0)の濃度を持つノードが他にある
