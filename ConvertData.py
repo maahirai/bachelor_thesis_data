@@ -78,10 +78,9 @@ class tree:
             if not node.parent and len(self.VtoID[str(node.v)]) == 1: 
                 self.root = node 
 
-    def SeekChild(self,nodev,parentnode): 
-        ids = self.VtoID[nodev]
-        for id in ids: 
-            if str(id) in parentnode.child: 
+    def SeekChild(self,nodev,parentid): 
+        for id in self.VtoID[nodev]: 
+            if str(id) in self.allnode[str(parentid)].child: 
                 return id
 
     def dump(self): 
@@ -168,7 +167,11 @@ class OutputFormat(Enum):
 
 def convert(tree,format=OutputFormat.xntm): 
     ret = dfs(tree,tree.root,parentnode=None,format=format)
-    return ret 
+    if format == OutputFormat.xntm:
+        #6Mixerの3:3の場合は，子は両方6Mixerじゃないとダメ（コーナーケースに対応）
+        #OutputFormat.xntmにのみ使える
+        ret = corner(ret)
+    return ret
 
 def dfs(tree,node,parentnode=None,format=OutputFormat.xntm): 
     l = []
@@ -178,10 +181,9 @@ def dfs(tree,node,parentnode=None,format=OutputFormat.xntm):
             for cv in node.child.values():
                 prov_v += cv
             l.append(prov_v)
-        else :
-            ### switchingでエイリアスの子ノードから実体のある子ノードに遷移している可能性あり
-            cid = tree.SeekChild(node.v,parentnode)
-            prov_v = parentnode.child[str(cid)]
+        else : 
+            cid = tree.SeekChild(node.v,parentnode.id)
+            prov_v = tree.allnode[str(parentnode.id)].child[str(cid)]
             if node.ismixing : 
                 l.append(prov_v)
         ### 根から辿ったら(12,2,2,0)はMRCMが作った木では，子を持たないノードだが(6,1,1,0)の濃度を持つノードが他にある
@@ -253,6 +255,50 @@ def switching(id,parentid,tree):
         ret = copy.deepcopy(tree.allnode[str(OriginalID)])
         return ret
 
+def corner(data): 
+    ### ルートノードの親ミキサーサイズ,提供液滴数は-1としとく
+    l = _corner(data)
+    return l
+
+def _corner(data): 
+    ### 試薬液滴は考える必要がない(ミキサーはlist)
+    if isinstance(data,str): 
+        return data
+    cornerprovs = (3,3)
+    cornermixers = [4,4]
+    mdfto = (3,2,1)
+    l = [] 
+    ProvSizes = data[0]
+    MixerSize = sum(ProvSizes)
+    children = []
+    childrenmixers = []
+    for child in data[1:]: 
+        mdfchild = _corner(child)
+        children.append(mdfchild)
+        ### 試薬液滴はミキサーサイズ-1とする
+        childsize = -1
+        if isinstance(mdfchild ,list): 
+            childsize = sum(mdfchild[0])
+        childrenmixers.append(childsize)
+    if MixerSize == 6 and ProvSizes == cornerprovs and childrenmixers == cornermixers:
+        ### ノードを1つ分割
+        l.append(mdfto)
+        cmpchildren = []
+        for child in children : 
+            size = child.__sizeof__()
+            e = [size,child]
+            cmpchildren.append(e)
+        Sorted = sorted(cmpchildren,reverse=True)
+        for size,mixer in Sorted:
+            l.append(mixer)
+        divided = l[-1]
+        l.append(divided)
+    else: 
+        ### 分割の必要無し
+        l.append(ProvSizes)
+        for child in children: 
+            l.append(child)
+    return l 
 
 def isMixingNode(v): 
     l = eval(v)
@@ -295,8 +341,8 @@ elif len(sys.argv) == 4:
     fi = json.load(t)
     fo = open(output,'w')
     for i in range(1,len(fi)+1):
-        list = JsonToList(fi[str(i)],format)
-        fo.write(str(list)+"\n")
+        l = JsonToList(fi[str(i)],format)
+        fo.write(str(l)+"\n")
     fo.close()
 else: 
     print("invalid num of input!!")

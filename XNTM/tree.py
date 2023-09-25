@@ -27,12 +27,27 @@ def IsMixerName(name):
     else :
         return False
 
+def cntMixer(root): 
+    q = []
+    MixerNum = 0
+    if root.children: 
+        q.append(root)
+        MixerNum += 1
+    while q: 
+        mn = q.pop()
+        for cn in mn.children: 
+            if cn.children: 
+                MixerNum += 1
+                q.append(cn)
+    return MixerNum
+
 ######################################################################################
 MIX_COUNTER = 0
 
 def InputToTree(Input):
     root = _InputToTree(Input,0)
     tree = LabelingMixers(root)
+    tree = WeakTransformTree(tree)
     return tree
 
 def _InputToTree(Input,provide_vol):
@@ -49,11 +64,13 @@ def _InputToTree(Input,provide_vol):
             elif type(item) == str:
                 root.children.append(node(item,size=Input[0][idx],provide_vol=Input[0][idx]))
             else :
+                print("不正な入力です:{}".format(item))
                 pass
         return root
     else :
         print("入力された希釈木データに異常あり．希釈木に含まれるミキサーのサイズは4，もしくは，6のみです．",file=sys.stderr)
-    
+
+# M9などの名前の埋め込み
 def LabelingMixers(root):
     q = []
     q.append(root)
@@ -82,6 +99,44 @@ def TransformTree(root):
     transformed_tree = _old_TransformTree(cpTree)
     return transformed_tree
 
+def WeakTransformTree(root):
+    global lNumChildMixer,MIX_COUNTER 
+    lNumChildMixer = list(itertools.repeat(-1,MIX_COUNTER))
+    cpTree = deepcopy(root)
+    transformed_tree = _weak_TransformTree(cpTree)
+    return transformed_tree
+
+def OctTransformTree(root):
+    global lNumChildMixer,MIX_COUNTER 
+    lNumChildMixer = list(itertools.repeat(-1,MIX_COUNTER))
+    cpTree = deepcopy(root)
+    transformed_tree = _Oct_old_TransformTree(cpTree)
+    return transformed_tree
+
+def _weak_TransformTree(root):
+    Children = []
+    for item in root.children:
+        ecv = 0
+        if IsMixerNode(item):
+            #put mixer on the left-side
+            ecv = 1
+            # we must place tht item firstly if (item.provide_vol == (ParentMixer.size - 1))
+            if item.provide_vol == root.size - 1:
+                # so large value
+                INF = 1000000000000
+                ecv += INF 
+            # if 4Mixer provides 3-fluids
+            elif item.provide_vol%2 and item.provide_vol>1 and item.size//2<=2: 
+                ecv += 100000000
+        Children.append((item,ecv))
+    SortedByECV = sorted( Children, key = lambda x: x[1], reverse = True)
+    res = []
+    for item in SortedByECV:
+        Subtree = _weak_TransformTree(item[0])
+        res.append(Subtree)
+    root.children = res
+    return root
+
 def _old_TransformTree(root):
     Children = []
     for item in root.children:
@@ -96,6 +151,7 @@ def _old_TransformTree(root):
                 # so large value
                 INF = 1000000000000
                 ecv += INF 
+            # if 4Mixer provides 3-fluids,3:2:1とかのとき,3を優先する必要あり
             elif item.provide_vol%2 and item.provide_vol>1 and item.size//2<=2: 
                 ecv += 100000000
         Children.append((item,ecv))
@@ -103,6 +159,63 @@ def _old_TransformTree(root):
     res = []
     for item in SortedByECV:
         Subtree = _old_TransformTree(item[0])
+        res.append(Subtree)
+    root.children = res
+    return root
+
+def __old_TransformTree(root):
+    Children = []
+    for item in root.children:
+        ecv = 0
+        if IsMixerNode(item):
+            # Sum of Number of children-mixer in the subtree
+            ecv += NumChildMixer(item)
+            # providing volume 
+            #ecv += item.provide_vol
+            # we must place tht item firstly if (item.provide_vol == (ParentMixer.size - 1))
+            if item.provide_vol == root.size - 1:
+                # so large value
+                INF = 1000000000000
+                ecv += INF 
+            # if 4Mixer provides 3-fluids,3:2:1とかのとき,3を優先する必要あり
+            elif item.provide_vol%2 and item.provide_vol>1 and item.size//2<=2: 
+                ecv += 100000000
+        Children.append((item,ecv))
+    SortedByECV = sorted( Children, key = lambda x: x[1], reverse = True)
+    res = []
+    for item in SortedByECV:
+        Subtree = __old_TransformTree(item[0])
+        res.append(Subtree)
+    root.children = res
+    return root
+
+### 配置優先度の式を変えた
+def _Oct_old_TransformTree(root): 
+    Children = []
+    INF = 100000000
+    for item in root.children:
+        ### 試薬液滴を配置するのは，後回し
+        ecv = 0
+        if IsMixerNode(item):
+            # Sum of Number of children-mixer in the subtree
+            ecv += NumChildMixer(item)
+            # providing volume 
+            #　提供液滴が多いほど，後の配置に邪魔になるから後回し.
+            # 並列度を高くするのには効くかも
+            ecv /= item.provide_vol
+            # we must place tht item firstly if (item.provide_vol == (ParentMixer.size - 1))
+            # 5:1の5や，3:1の3
+            if item.provide_vol == root.size - 1:
+                ecv = INF 
+            # どんなパターンでも3from4Mを優先する必要があり.
+            # 例えば，1:1:1:3の場合，3from4を優先せんと適応できるパターンがない
+            elif item.provide_vol%2 and item.provide_vol>1 and item.size//2<=2: 
+                ecv = INF
+        Children.append((item,ecv))
+    SortedByECV = sorted( Children, key = lambda x: x[1], reverse = True)
+    res = []
+    for item in SortedByECV:
+        Subtree = _Oct_old_TransformTree(item[0])
         res.append(Subtree)
     root.children = res
     return root
@@ -202,13 +315,22 @@ def _createTree(root, label=None):
     '''
     convert a tree from NODE data structure to Pydot Graph for visualisation
     '''
-    global MIX_COUNTER,ColorList
+    global MIX_COUNTER,ColorList 
+    MixerColorList = []
+    ReagentColorDict = {}
+    #print("にゃん",ColorList)
     if not ColorList:
-        ColorList = list(itertools.repeat("#000000",MIX_COUNTER))
+        MixerColorList = list(itertools.repeat("#000000",MIX_COUNTER))
+    elif len(ColorList)==2: 
+        MixerColorList = ColorList[0]
+        ReagentColorDict = ColorList[1]
+    else :  
+        MixerColorList = ColorList
+    #print("正",MixerColorList,ReagentColorDict,MIX_COUNTER,len(MixerColorList))
     P = pydot.Dot(graph_type='digraph', label=label, labelloc='top', labeljust='left')#, nodesep="1", ranksep="1")
-    P.set_node_defaults(style='filled',fixedsize='true',fontsize='18',fontname='Time Roman')
+    P.set_node_defaults(style='filled',fixedsize='false',fontsize='28',fontname='Time New Roman Italic')
     P.set_graph_defaults(bgcolor="#00000000")
-    P.set_edge_defaults(fontsize = '20',arrowsize = '0.5')
+    P.set_edge_defaults(fontsize = '30',arrowsize = '0.5')
 
     nodelist, edgelist = _getNodesEdges(root)
     
@@ -222,11 +344,18 @@ def _createTree(root, label=None):
         ### ミキサーノードの出力設定
         if node[1][0]=="M" :
             mixeridx = int(node[1][1:])
-            if ColorList[mixeridx] == "#000000":
-                ColorList[mixeridx] = "#"+hex(RGB)[2:]
-            shape,color,width = 'circle',ColorList[mixeridx],"0.75"
-        n = pydot.Node(node[0], shape = shape,label=Translate(node[1]),fillcolor=color ,width= width)
+            if MixerColorList[mixeridx] == "#000000":
+                MixerColorList[mixeridx] = "#"+hex(RGB)[2:]
+            shape,color,width = 'circle',MixerColorList[mixeridx],"0.75"
+        else: 
+            reagentname = node[1]
+            if not reagentname in ReagentColorDict: 
+                ReagentColorDict[reagentname] = "#"+hex(RGB)[2:]
+            color = ReagentColorDict[reagentname] 
+        #n = pydot.Node(node[0], shape = shape,label=Translate(node[1]),fillcolor=color,width= width)
+        n = pydot.Node(node[0], shape = shape,label=node[1],fillcolor=color,width= width)
         P.add_node(n)
+    ColorList = [MixerColorList,ReagentColorDict]
     
     # Edges
     for edge in edgelist:

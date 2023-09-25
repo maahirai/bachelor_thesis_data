@@ -32,6 +32,7 @@ def genProvidedRatio(Msize):
     rest = Msize 
 
     Ratio = []
+    ### Msize と同じサイズにならないよう
     First = random.randint(1,rest-1)
     Ratio.append(First)
     rest -= First
@@ -109,6 +110,7 @@ def genInputTree(MaxHeight,MixerRatio,ReagentKind,fair=False):
                 mixer23_num += 1
             ProvRatio = genProvidedRatio(e.size)
             IsMixr = [True,False]
+            ### 次に生成するノードがミキサーである確率と，試薬液滴である確率
             ratio = [MixerRatio,1-MixerRatio]
             ChildModules = random.choices(IsMixr,weights=ratio,k=len(ProvRatio))
             if fair : 

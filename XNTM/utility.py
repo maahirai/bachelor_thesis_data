@@ -26,7 +26,7 @@ class Cell:
         draw.rectangle([(x+sep,y+Width+1),(x+sep+Width,y+2*sep-1)],fill = self.color)
         draw.rectangle([(x+Width+1,y+sep),(x+2*sep-1,y+sep+Width)],fill = self.color)
         dropfontsize = 15
-        dropfont = ImageFont.truetype("Menlo for Powerline.ttf", dropfontsize)
+        dropfont = ImageFont.truetype("Times New Roman.ttf", dropfontsize)
         fromy,fromx = x+sep,y+sep 
         toy,tox = fromy+Width,fromx+Width
         #draw.text(((fromx+tox)//2-11,(fromy+toy)//2-9),Translate(self.state),font=dropfont,fill="Black")
@@ -42,7 +42,7 @@ class Cell:
         draw.rectangle([(self.sx+sep,self.sy+Width+1),(self.sx+sep+Width,self.sy+2*sep-1)],fill = self.color)
         draw.rectangle([(self.sx+Width+1,self.sy+sep),(self.sx+2*sep-1,self.sy+sep+Width)],fill = self.color)
         dropfontsize = 15
-        dropfont = ImageFont.truetype("Menlo for Powerline.ttf", dropfontsize)
+        dropfont = ImageFont.truetype("Times New Roman.ttf", dropfontsize)
         fromy,fromx = self.sy+sep,self.sx+sep 
         toy,tox = fromy+Width,fromx+Width
         #draw.text(((fromx+tox)//2-11,(fromy+toy)//2-9),Translate(self.state),font=dropfont,fill="Black")
@@ -71,7 +71,7 @@ class SlideCell:
         self.state = state if state else ""
         draw.rectangle([(x,y),(x+SlideCellWidth,y+SlideCellWidth)],fill = self.color,outline="Black")
         dropfontsize = 15
-        dropfont = ImageFont.truetype("Menlo for Powerline.ttf", dropfontsize)
+        dropfont = ImageFont.truetype("Times New Roman.ttf", dropfontsize)
         fromy,fromx = x+sep,y+sep 
         toy,tox = fromy+Width,fromx+Width
         #draw.text(((fromx+tox)//2-11,(fromy+toy)//2-9),Translate(self.state),font=dropfont,fill="Black")
@@ -86,7 +86,7 @@ class SlideCell:
         self.state = state 
         draw.rectangle([(self.sx,self.sy),(self.sx+SlideCellWidth,self.sy+SlideCellWidth)],fill = self.color,outline="Black")
         dropfontsize = 15
-        dropfont = ImageFont.truetype("Menlo for Powerline.ttf", dropfontsize)
+        dropfont = ImageFont.truetype("Times New Roman.ttf", dropfontsize)
         fromy,fromx = self.sy,self.sx
         toy,tox = fromy+SlideCellWidth,fromx+SlideCellWidth
         #draw.text(((fromx+tox)//2-11,(fromy+toy)//2-9),Translate(self.state),font=dropfont,fill="Black")
@@ -136,6 +136,7 @@ import random
 from pathlib  import Path
 def PMDImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops,ImageOut=False):
     global Width,Sep,draw
+    MixerColorList,ReagentColorDict = ColorList
     if not ImageOut: 
         return 
     grid,img = genGrid(Vsize,Hsize)
@@ -152,7 +153,7 @@ def PMDImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPl
                 if NodeInfo[str(hash)].kind == "Mixer": 
                     idx = int(NodeInfo[str(hash)].name[1:])
                     #name = "d"+str(idx)
-                    color = ColorList[idx]
+                    color = MixerColorList[idx]
                 else : 
                     name = NodeInfo[str(hash)].name[1:]
                     color = "Gainsboro"
@@ -185,7 +186,7 @@ def PMDImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPl
             #        continue
             #    else: 
             #        MixerIdx = int(Node.name[1:])
-            #        color = ColorList[MixerIdx]
+            #        color = MixerColorList[MixerIdx]
             #        cells = getCoveringCell(Node.RefCell,Node.orientation)
             #        sy,sx  = Node.RefCell 
             #        ey,ex = cells[len(cells)-1]
@@ -195,7 +196,7 @@ def PMDImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPl
             #        diff = 5
             #        draw.rounded_rectangle([(fromx-diff,fromy-diff),(tox+diff,toy+diff)],radius = 15,outline = color,width=10)
             #        fontsize = 22
-            #        font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+            #        font = ImageFont.truetype("Times New Roman.ttf", fontsize)
             #        #draw.text(((fromx+tox)//2-14,(fromy+toy)//2+3),Node.name,font=font,fill="Black")
 
             for hash in AtTopOfPlacedMixer: 
@@ -209,7 +210,7 @@ def PMDImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPl
                     continue
                 else: 
                     MixerIdx = int(Node.name[1:]) 
-                    color = ColorList[MixerIdx] 
+                    color = MixerColorList[MixerIdx] 
                     cells = getCoveringCell(Node.RefCell,Node.orientation)
                     sy,sx  = Node.RefCell 
                     ey,ex = cells[len(cells)-1]
@@ -218,7 +219,7 @@ def PMDImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPl
                     toy,tox = grid[ey][ex].ey-Width,grid[ey][ex].ex-Width
                     draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 15,outline = color,width=10)
                     fontsize = 16
-                    font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+                    font = ImageFont.truetype("Times New Roman.ttf", fontsize)
                     #draw.text(((fromx+tox)//2-10,(fromy+toy)//2-12),Translate(Node.name),font=font,fill="Black")
                     draw.text(((fromx+tox)//2-8,(fromy+toy)//2-10),Node.name[1:],font=font,fill="Black")
                     
@@ -237,6 +238,7 @@ def PMDImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPl
 
 def PMDSlideImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer,WaitingProvDrops,ImageOut=False):
     global draw,SlideCellWidth 
+    MixerColorList,ReagentColorDict = ColorList
     if not ImageOut: 
         return 
     grid,img = genSlideGrid(Vsize,Hsize)
@@ -250,14 +252,19 @@ def PMDSlideImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTo
                 name = "" 
                 color = "" 
                 hash = abs(PMDState[i][j])
+
                 if NodeInfo[str(hash)].kind == "Mixer": 
                     idx = int(NodeInfo[str(hash)].name[1:])
                     #name = "d"+str(idx)
-                    color = ColorList[idx]
+                    color = MixerColorList[idx]
                 else : 
-                    name = NodeInfo[str(hash)].name[1:]
-                    #color = "White"
-                    color = "Gainsboro"
+                    key = NodeInfo[str(hash)].name 
+                    if key[0] == "M":
+                        print("アストロゼネ",key,NodeInfo[str(hash)].ProvNum,NodeInfo[str(hash)].size,NodeInfo[str(hash)].kind)
+                    #color = "Gainsboro"
+                    color = ReagentColorDict[key]
+                    ### 何も書かない
+                    name = ""
                 #draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 5,fill = color,outline = 'Black',Width=3) 
                 #fromy,fromx = (2*i+1)*sep,(2*j+1)*sep
                 #toy,tox = fromy+Width,fromx+Width
@@ -287,7 +294,7 @@ def PMDSlideImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTo
                     continue
                 else: 
                     MixerIdx = int(Node.name[1:])
-                    color = ColorList[MixerIdx]
+                    color = MixerColorList[MixerIdx]
                     cells = getCoveringCell(Node.RefCell,Node.orientation)
                     sy,sx  = Node.RefCell 
                     ey,ex = cells[len(cells)-1]
@@ -299,7 +306,7 @@ def PMDSlideImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTo
                     #draw.rounded_rectangle([(fromx+1,fromy+1),(tox-1,toy-1)],radius = 15,outline = color,width=5)
                     draw.rounded_rectangle([(fromx+1,fromy+1),(tox-1,toy-1)],radius = 15,outline = color,width=10)
                     fontsize = 16
-                    font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+                    font = ImageFont.truetype("Times New Roman.ttf", fontsize)
                     #draw.text(((fromx+tox)//2-8,(fromy+toy)//2-10),Node.name[1:],font=font,fill="Black")
 
             for hash in AtTopOfPlacedMixer: 
@@ -313,17 +320,25 @@ def PMDSlideImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTo
                     continue
                 else: 
                     MixerIdx = int(Node.name[1:]) 
-                    color = ColorList[MixerIdx] 
+                    color = MixerColorList[MixerIdx] 
                     cells = getCoveringCell(Node.RefCell,Node.orientation)
                     sy,sx  = Node.RefCell 
                     ey,ex = cells[len(cells)-1]
                     fromy,fromx =grid[sy][sx].sy ,grid[sy][sx].sx
                     toy,tox = grid[ey][ex].ey,grid[ey][ex].ex
                     w = 10
+
+                    ### 見やすく
+                    cx,cy = (tox+fromx)//2,(fromy+toy)//2
+                    mdf = 4
+                    #fontsize = 16
+                    fontsize = 32
+                    div = 2.1
+                    draw.rectangle([(cx-SlideCellWidth//div+mdf,cy-SlideCellWidth//div+mdf),(cx+SlideCellWidth//div-mdf,cy+SlideCellWidth//div-mdf)],fill = "White",width=0)
+
                     draw.rounded_rectangle([(fromx+1,fromy+1),(tox-1,toy-1)],radius = 15,outline = color,width=10)
-                    fontsize = 16
-                    font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
-                    draw.text(((fromx+tox)//2-8,(fromy+toy)//2-10),Node.name[1:],font=font,fill="Black")
+                    font = ImageFont.truetype("Times New Roman.ttf", fontsize)
+                    draw.text(((fromx+tox)//2-12-mdf,(fromy+toy)//2-13-mdf),Node.name[1:],font=font,fill="Black")
                     
                     mix = True
                     for child in Children: 
@@ -331,7 +346,7 @@ def PMDSlideImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTo
                             mix = False 
                         if mix : 
                             cx,cy = (tox+fromx)//2,(fromy+toy)//2
-                            draw.arc([(cx-SlideCellWidth//2,cy-SlideCellWidth//3),(cx+SlideCellWidth//2,cy+SlideCellWidth//3)],30,0,fill="Black",width=3)
+                            draw.arc([(cx-SlideCellWidth//2,cy-SlideCellWidth//2),(cx+SlideCellWidth//2,cy+SlideCellWidth//2)],30,0,fill="Black",width=3)
                             tri_x,tri_y= cx+SlideCellWidth//2,(fromy+toy)//2
                             draw.regular_polygon((tri_x,tri_y,(9)),3,rotation=75,fill="Black")
 
@@ -341,6 +356,7 @@ def PMDSlideImage(filename,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTo
 
 def ProcessImage(filename,Vsize,Hsize,ColorList,TimeStep,FlushCount,PMD,Mixer,NodeInfo):
     global Width,Sep,draw
+    MixerColorList,ReagentColorDict = ColorList
     grid,img = genGrid(Vsize,Hsize)
     draw = ImageDraw.Draw(img)
     drop = []
@@ -355,7 +371,7 @@ def ProcessImage(filename,Vsize,Hsize,ColorList,TimeStep,FlushCount,PMD,Mixer,No
                 if NodeInfo[str(hash)].kind == "Mixer": 
                     idx = int(NodeInfo[str(hash)].name[1:])
                     #name = "d"+str(idx)
-                    color = ColorList[idx]
+                    color = MixerColorList[idx]
                 else : 
                     name = NodeInfo[str(hash)].name[1:]
                     color = "Gainsboro"
@@ -369,7 +385,7 @@ def ProcessImage(filename,Vsize,Hsize,ColorList,TimeStep,FlushCount,PMD,Mixer,No
         Node = NodeInfo[str(hash)]
         Children = Node.ChildrenHash 
         MixerIdx = int(Node.name[1:])
-        color = ColorList[MixerIdx]
+        color = MixerColorList[MixerIdx]
         cells = getCoveringCell(Node.RefCell,Node.orientation)
         sy,sx  = Node.RefCell 
         ey,ex = cells[len(cells)-1]
@@ -378,7 +394,7 @@ def ProcessImage(filename,Vsize,Hsize,ColorList,TimeStep,FlushCount,PMD,Mixer,No
         toy,tox = grid[ey][ex].ey-Width,grid[ey][ex].ex-Width
         draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 15,outline = color,width=10)
         fontsize = 16
-        font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+        font = ImageFont.truetype("Times New Roman.ttf", fontsize)
         draw.arc([(fromx+sep-Width/2,fromy+sep),(tox-sep+Width/2,toy-sep)],30,0,fill="Black",width=5)
         tri_x,tri_y= tox-sep+Width*0.44,(fromy+toy)//2
         draw.regular_polygon((tri_x,tri_y,(9)),3,rotation=75,fill="Black")
@@ -388,7 +404,7 @@ def ProcessImage(filename,Vsize,Hsize,ColorList,TimeStep,FlushCount,PMD,Mixer,No
 
     S = "T={},F={}".format(TimeStep,FlushCount)
     fontsize = 40
-    font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+    font = ImageFont.truetype("Times New Roman.ttf", fontsize)
     draw.text((0,2*sep*Vsize+2*Width-(fontsize)+Width//2+5),S,font=font,fill="Black")
     #2*sep*Hsize+2*Width-(fontsize*10)
     create_directory("image")
@@ -397,6 +413,7 @@ def ProcessImage(filename,Vsize,Hsize,ColorList,TimeStep,FlushCount,PMD,Mixer,No
 
 def ProcessSlideImage(filename,Vsize,Hsize,ColorList,TimeStep,FlushCount,PMD,Mixer,NodeInfo):
     global SlideCellWidth,draw,blank
+    MixerColorList,ReagentColorDict = ColorList
     SlideCellWidth = 40
     grid,img = genSlideGrid(Vsize,Hsize)
     draw = ImageDraw.Draw(img)
@@ -412,10 +429,13 @@ def ProcessSlideImage(filename,Vsize,Hsize,ColorList,TimeStep,FlushCount,PMD,Mix
                 if NodeInfo[str(hash)].kind == "Mixer": 
                     idx = int(NodeInfo[str(hash)].name[1:])
                     #name = "d"+str(idx)
-                    color = ColorList[idx]
+                    color = MixerColorList[idx]
                 else : 
-                    name = NodeInfo[str(hash)].name[1:]
-                    color = "Gainsboro"
+                    key = NodeInfo[str(hash)].name
+                    #color = "Gainsboro"
+                    color = ReagentColorDict[key]
+                    ### 何も書かない
+                    name = ""
                     #color = "White"
                 #draw.rounded_rectangle([(fromx,fromy),(tox,toy)],radius = 5,fill = color,outline = 'Black',Width=3) 
                 #fromy,fromx = (2*i+1)*sep,(2*j+1)*sep
@@ -427,27 +447,35 @@ def ProcessSlideImage(filename,Vsize,Hsize,ColorList,TimeStep,FlushCount,PMD,Mix
         Node = NodeInfo[str(hash)]
         Children = Node.ChildrenHash 
         MixerIdx = int(Node.name[1:])
-        color = ColorList[MixerIdx]
+        color = MixerColorList[MixerIdx]
         cells = getCoveringCell(Node.RefCell,Node.orientation)
         sy,sx  = Node.RefCell 
         ey,ex = cells[len(cells)-1]
-
+        
         fromy,fromx =grid[sy][sx].sy ,grid[sy][sx].sx
         toy,tox = grid[ey][ex].ey,grid[ey][ex].ex
-        draw.rounded_rectangle([(fromx+1,fromy+1),(tox-1,toy-1)],radius = 15,outline = color,width=10)
-        fontsize = 16
-        font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+        ### 見やすく
+        #fontsize = 16
+        fontsize = 32
+        mdf = 4
+        div = 2.1
         cx,cy = (tox+fromx)//2,(fromy+toy)//2
-        draw.arc([(cx-SlideCellWidth//2,cy-SlideCellWidth//3),(cx+SlideCellWidth//2,cy+SlideCellWidth//3)],30,0,fill="Black",width=3)
+        draw.rectangle([(cx-SlideCellWidth//div+mdf,cy-SlideCellWidth//div+mdf),(cx+SlideCellWidth//div-mdf,cy+SlideCellWidth//div-mdf)],fill = "White",width=0)
+
+        draw.rounded_rectangle([(fromx+1,fromy+1),(tox-1,toy-1)],radius = 15,outline = color,width=10)
+        font = ImageFont.truetype("Times New Roman.ttf", fontsize)
+       
         tri_x,tri_y= cx+SlideCellWidth//2,(fromy+toy)//2
+        #draw.arc([(cx-SlideCellWidth//2,cy-SlideCellWidth//3),(cx+SlideCellWidth//2,cy+SlideCellWidth//3)],30,0,fill="Black",width=3)
         draw.regular_polygon((tri_x,tri_y,(9)),3,rotation=75,fill="Black")
+        draw.arc([(cx-SlideCellWidth//2,cy-SlideCellWidth//2),(cx+SlideCellWidth//2,cy+SlideCellWidth//2)],30,0,fill="Black",width=3)
         #draw.text(((fromx+tox)//2-10,(fromy+toy)//2-12),Translate(Node.name),font=font,fill="Black")
-        draw.text(((fromx+tox)//2-8,(fromy+toy)//2-10),Node.name[1:],font=font,fill="Black")
+        draw.text(((fromx+tox)//2-12-mdf,(fromy+toy)//2-13-mdf),Node.name[1:],font=font,fill="Black")
         
 
     S = "T={},F={}".format(TimeStep,FlushCount)
     fontsize = 40
-    font = ImageFont.truetype("Menlo for Powerline.ttf", fontsize)
+    font = ImageFont.truetype("Times New Roman.ttf", fontsize)
     draw.text((0,Hsize*SlideCellWidth+blank),S,font=font,fill="Black")
     #2*sep*Hsize+2*Width-(fontsize*10)
     create_directory("image")

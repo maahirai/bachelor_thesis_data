@@ -12,7 +12,8 @@ class Module:
         self.ParentHash = ParentHash
         self.ChildrenHash = []
         self.ProvNum = node.provide_vol
-        self.kind = "Reagent" if self.ProvNum == self.size else "Mixer" 
+        #本来のプログラム self.kind = "Reagent" if self.ProvNum == self.size else "Mixer" 
+        self.kind = "Mixer"  if self.name[0]=="M" else "Reagent"
         self.SubTreeHeight = 0
         self.depth = 0
         for c in node.children:
@@ -32,7 +33,7 @@ class Module:
 ModulePrefix = ["6","4","r"]
 
 def globalInit(): 
-    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,SubTreeHeightMean,MixerNodeHash,RollBackHash
+    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,SubTreeHeightMean,MixerNodeHash,RollBackHash,PrevRollBackPMHash
     PMDState = [[0 for j in range(Hsize)] for i in range(Vsize)]
     NodeInfo = {}
     CntRollBack = 0
@@ -42,6 +43,7 @@ def globalInit():
     MixerNodeHash = []
     SubTreeHeightMean = 0
     RollBackHash={}
+    PrevRollBackPMHash = []
 
 def viewAllModule(RootHash): 
     q = [] 
@@ -98,6 +100,7 @@ def Mixing(MixerHash):
     NodeInfo[str(MixerHash)].MixedTimeStep = TimeStep
     Mixer = getNode(MixerHash)
     
+    ### 試薬の混合によって発生する，PMDの状態の書き換え
     for cell in getMixerCoveringCell(Mixer.RefCell,Mixer.orientation): 
         if cell in CellForProtectFromFlushing: 
             CellForProtectFromFlushing.remove(cell)
@@ -220,6 +223,20 @@ def RollBack(PMixerHash):
     WritePMD(getNode(PMixerHash).CoveringCell,PMixerHash)
     return StateChanges
 
+def FreqUsed(ParentMixerHash,lib): 
+    global PrevRollBackPMHash
+    ### 3連続で同じロールバックが繰り返されていたら，却下
+    if len(PrevRollBackPMHash) == 2:
+        ### 比較する新たなロールバック
+        cmp = [ParentMixerHash,lib]
+        if  PrevRollBackPMHash[0] == PrevRollBackPMHash[1] and PrevRollBackPMHash[0] == cmp: 
+            return True 
+        else: 
+            return False
+    else: 
+        return False
+
+
 def WritePMD(PlaceCells,v): 
     global PMDState,CellForProtectFromFlushing 
     for cell in PlaceCells: 
@@ -305,6 +322,27 @@ def CountFlushing(RootHash,savefile,ColorList,ImageOut=False):
             skipped += 1 
     return [ret,overlapp_num]
 
+def CountCellUsedByMixerNum(RootHash): 
+    global Vsize,Hsize,TimeStep 
+    ### Setにセル情報を格納することで，重複を防ぐ
+    cells = {}
+    q = []
+    q.append(RootHash)
+    while(q): 
+        hash = q.pop()
+        Node = getNode(hash)
+        if Node.kind=="Mixer":
+            for cell in Node.CoveringCell: 
+                if str(cell) not in cells: 
+                    cells[str(cell)] = 0
+                cells[str(cell)]+=1
+        for chash in Node.ChildrenHash: 
+            q.append(chash) 
+    freq = 0
+    for v in cells.values(): 
+        freq += v 
+    return [len(cells),freq/len(cells)]
+
 ########################################################################################
 def getRatioAndPrefixOfChildren(MHash): 
     global NodeInfo 
@@ -373,7 +411,7 @@ def mv(lib,ParentMixerHash):
     else : 
         return {}
 
-### functions relating library
+### functions relating to library
 def GenLibKey(ratio,Modules): 
     # 6Mixer,4Mixer,Reagent Dropletについて，それぞれ含まれる数と親ミキサーに提供する液滴数をソートしたものを返す
     global ModulePrefix
@@ -703,7 +741,7 @@ def old_Evallib(lib,PHash):
             ny,nx = y+dy[way],x+dx[way]
             if [ny,nx] in PMixerCoveringCell: 
                 continue
-            if PMDState[ny][nx] != 0: 
+            if not InsidePMD(ny,nx) or PMDState[ny][nx] != 0: 
                 OpenDirection[way] = False 
     YametokeDirection = 4
     for way in range(4):
@@ -1185,6 +1223,7 @@ def PlaceChildren(ParentMixerHash):
     
     lib = getOptlib(ParentMixerHash)
     if not lib : 
+        print("適用できるライブラリが見つかりません",file=sys.stderr)
         StateChanges.append([-1,[]])
         return StateChanges
     Hashlib = getHashlib(lib)
@@ -1260,9 +1299,10 @@ from .utility import PMDSlideImage
 CntRollBack = 0
 Vsize,Hsize=0,0
 RollBackHash={}
+PrevRollBackPMHash = []
 TimeStep = 0 
-def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
-    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,RollBackHash,TimeStep
+def xntm(root,PMDsize,ColorList=None,ProcessOut=0,ImageName="",ImageOut=False):
+    global PMDState,NodeInfo,PlacementSkipped,OnlyProvDrop,WaitingProvDrops,AtTopOfPlacedMixer,CellForFlushing,CellForProtectFromFlushing,Done,Vsize,Hsize,PlacementSkippedLib,CntRollBack,RollBackHash,TimeStep,PrevRollBackPMHash
     Vsize,Hsize = PMDsize 
     FlushCount,ImageCount,TimeStep = 0,0,0
     globalInit()
@@ -1281,12 +1321,15 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
             #PMDImage(imageName,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer=AtTopOfPlacedMixer,WaitingProvDrops=WaitingProvDrops,ImageOut=ImageOut)
             PMDSlideImage(imageName,ColorList,TimeStep,Vsize,Hsize,PMDState,NodeInfo,AtTopOfPlacedMixer=AtTopOfPlacedMixer,WaitingProvDrops=WaitingProvDrops,ImageOut=ImageOut)
         
+        ### 試薬合成が完了した
         if getNode(RootHash).state == "OnlyProvDrop": 
             if ProcessOut :
                 print("混合手順生成完了")
+            ### フラッシングの発生回数の数え上げ
             FlushNum,OverlappNum = CountFlushing(RootHash,ImageName,ColorList,ImageOut=ImageOut)
-            return [FlushNum,OverlappNum]
-            #return FlushNum,OverlappNum
+            ### ミキサーによって使用されたセル数の数え上げ
+            CellUsedByMixerNum,FreqCellUsed = CountCellUsedByMixerNum(RootHash)
+            return [FlushNum,OverlappNum,CellUsedByMixerNum,FreqCellUsed]
 
         CannotDoAnything = True 
 
@@ -1339,7 +1382,7 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
             if not Succeed: 
                 if ProcessOut:
                     print("十分な大きさのPMDを用意してください.",file=sys.stderr)
-                return [-2,-1]
+                return [-2,-1,-1,-1]
             else : 
                 FlushCount += 1
             ### 配置をスキップされていたミキサーや試薬の配置 
@@ -1366,9 +1409,18 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
                             StateChanges.append(Change)
                         lib = getOptlib(ParentMixerHash)
                         if ParentMixerHash in RollBackHash:
-                            if lib == RollBackHash[ParentMixerHash]: 
-                                return [-1,-1]
-                        RollBackHash[ParentMixerHash]=lib
+                            if lib == RollBackHash[ParentMixerHash] and FreqUsed(ParentMixerHash,lib):
+
+                                print(PMixer.name,PMixer.hash,lib,"\n")
+                                print(PrevRollBackPMHash)
+                                viewPMD()
+                                print("RollBackのループが起きています.",file=sys.stderr)
+                                return [-1,-1,-1,-1]
+                        RollBackHash[ParentMixerHash] = lib
+                        if len(PrevRollBackPMHash)==2:
+                            PrevRollBackPMHash.pop()
+                        used = [ParentMixerHash,lib]
+                        PrevRollBackPMHash.append(used)
                         CntRollBack += 1
                     else : 
                         for change in MoreStateChanges: 
@@ -1385,9 +1437,9 @@ def xntm(root,PMDsize,ColorList,ProcessOut=0,ImageName="",ImageOut=False):
         if code == -1 or CntRollBack > 100:
             if ProcessOut:
                 print("扱えない希釈木です．十分な大きさのPMDを用意しているか確認してください．",file=sys.stderr)
-            return [-3,-1]
+            return [-3,-1,-1,-1]
         elif  FlushCount>1000:
-            return [FlushCount,-1] 
+            return [FlushCount,-1,-1,-1] 
 
         if ProcessOut:
             viewAllModule(RootHash)
